@@ -94,6 +94,22 @@
   .pv-step{display:flex;gap:11px;align-items:flex-start;padding:11px 2px;border-top:1px solid var(--line);font-size:14px;line-height:1.4}
   .pv-step:first-child{border-top:none}
   .pv-num{flex:0 0 23px;height:23px;border-radius:7px;background:var(--card2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--dim);margin-top:1px;font-weight:700}
+  /* ── Desktop / laptop: use the wider screen instead of a skinny phone strip.
+     Phones (<768px) are unchanged. Lists flow into 2–3 columns; nav widens to match. */
+  @media (min-width:768px){
+    body{max-width:880px;padding-left:24px;padding-right:24px}
+    .nav{max-width:880px}
+    #today-list,#bonus-list,#bg-list,#claude-strip,#active-banner{
+      display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
+    #today-list>.card,#bonus-list>.card,#bg-list>.card,#claude-strip>.card,#active-banner>.card{margin-bottom:0}
+    /* section heading lines inside a grid should span the full width */
+    #bg-list>.tsub,#claude-strip>.tsub{grid-column:1/-1}
+  }
+  @media (min-width:1180px){
+    body{max-width:1080px}
+    .nav{max-width:1080px}
+    #today-list,#bonus-list{grid-template-columns:repeat(3,minmax(0,1fr))}
+  }
 </style>
 </head>
 <body>
