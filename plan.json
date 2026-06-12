@@ -1,0 +1,16 @@
+{
+  "date": "2026-06-12",
+  "tasks": [
+    {"id":"workout","name":"Workout","emoji":"🏋️","kind":"main","wtype":"Pull","description":"Pull day — done. Leg ext 300lb (3×8), squats dialled in. Progressive overload: same weight+reps two sessions → +5kg on squats.","micro":["Warm-up","Working sets","Finish / log"]},
+    {"id":"nanabanana","name":"NanaBanana Generation","emoji":"🍌","kind":"main","description":"","micro":["Hook image — Video 1","Hook image — Video 2","Hook image — Video 3","Body image — Video 1","Body image — Video 2","Body image — Video 3"]},
+    {"id":"veo31","name":"VEO 3.1 Clips","emoji":"🎬","kind":"main","description":"","micro":["Hook clip — Video 1","Hook clip — Video 2","Hook clip — Video 3","Body clip — Video 1","Body clip — Video 2","Body clip — Video 3"]},
+    {"id":"capcut","name":"CapCut Assembly","emoji":"✂️","kind":"main","description":"","micro":["Assemble Video 1","Assemble Video 2","Assemble Video 3","Post V1 now, V2/V3 spaced 2–3h"]},
+    {"id":"research","name":"Content Research","emoji":"🔍","kind":"main","description":"","micro":["Scroll TikTok burner","Scroll IG burner","Sandcastles feed / Kalodata","Gather + save ideas","Pick top 3"]},
+    {"id":"planvids","name":"Plan next day's videos","emoji":"🗓","kind":"main","description":"","micro":["Check hook-ideas list","Video 1 planned","Video 2 planned","Video 3 planned"]},
+    {"id":"planday","name":"Plan next day","emoji":"🗓","kind":"main","description":"","micro":["Review done / not-done","Build tomorrow's list","Push to app + log calendar"]},
+    {"id":"grillauto","name":"Optimize NanaBanana/Veo automation (grill-me)","emoji":"🤖","kind":"bonus","pts":20,"description":"Main focus after dailies. Deep grill-me pass on the nano-veo-engine until it's daily-reliable — no manual clicking, just speak the plan and it runs.","micro":["Grill-me on the automation flow","Capture pain points","Harden the engine","Test end-to-end on a real day"]},
+    {"id":"appfeatures","name":"Build app features","emoji":"📱","kind":"bonus","pts":20,"description":"Bonus section + points (this), per-day view, easy remove-on-Today (this), bake plan.json into the planning skill (this). Plus scan app for missing features.","micro":["Bonus section + points","Remove-on-Today","Bake plan.json into skill","Per-day view + suggestions"]},
+    {"id":"centralbrain","name":"Central brain: phone↔laptop","emoji":"🧠","kind":"bonus","pts":10,"description":"Shared source-of-truth so Claude Code is continuous between phone and laptop — git repo of skills+memory both clone. Needs your GitHub login to push.","micro":["Stage git repo as source of truth","You create private repo + push","Clone on phone Claude Code"]},
+    {"id":"gathernotes","name":"Gather today's notes → action them","emoji":"📝","kind":"bonus","pts":5,"description":"On-demand: when you ask 'what are the notes / things to tackle', pull all notes logged on today's tasks and turn them into the next extra tasks.","micro":["Pull day's task notes","Turn into action items","Queue as tomorrow's extras"]}
+  ]
+}
