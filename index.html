@@ -573,7 +573,7 @@ function rawSend(obj,onok){const url=store.sheetUrl||BAKED_SHEET_URL;if(!url)ret
   fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify(obj)}).then(onok||(()=>{})).catch(()=>{});}
 function post(obj,onok){if(store.testMode)return;
   store.outbox.push({oid:'o'+Date.now()+'-'+store.outbox.length,ts:Date.now(),obj:obj});
-  store.outbox=store.outbox.filter(x=>Date.now()-x.ts<3*864e5);save();
+  if(store.outbox.length>300)store.outbox=store.outbox.slice(-300);save();/* cap by COUNT, never drop un-synced rows by age */
   rawSend(obj,()=>{store.lastSync=Date.now();save();if(onok)onok();});}
 function resendOutbox(){if(store.testMode||!store.outbox.length)return;
   store.outbox.forEach(x=>rawSend(x.obj));store.lastSync=Date.now();save();}
@@ -832,7 +832,8 @@ function restoreActive(){if(!store.active)return;active=store.active;
   go('session');renderSession();
   if(active.end){document.getElementById('sess-timer').textContent=clock(active.durMs||0);}
   else{tick=setInterval(updTimer,1000);updTimer();}}
-checkRollover();resendOutbox();save();setTestBar();restoreActive();if(!active)renderToday();fetchPlan();
+try{checkRollover();resendOutbox();save();setTestBar();restoreActive();}catch(e){console.warn('boot recover',e);active=null;try{delete store.active;save();}catch(_){}}
+if(!active)renderToday();fetchPlan();
 </script>
 </body>
 </html>
