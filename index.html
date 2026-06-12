@@ -135,6 +135,7 @@
   </div>
   <div id="bg-list"></div>
   <div id="claude-strip"></div>
+  <div id="done-rollup" class="hidden"></div>
   <div id="today-list"></div>
   <div id="bonus-wrap" class="hidden">
     <div class="seclabel">⚡ Bonus tasks<span class="seclbl-sub">extra effort · not required for 100%</span></div>
@@ -152,6 +153,7 @@
   <div class="h-row"><button class="mini" onclick="backToToday()">‹ today (keeps running)</button><span class="pill" id="sess-date"></span></div>
   <h1 id="sess-title" style="font-size:20px"></h1>
   <div id="sess-desc" class="card hint hidden" style="line-height:1.55;white-space:pre-wrap;margin-top:-2px"></div>
+  <div id="sess-pace" class="hint hidden" style="margin:-6px 2px 12px;font-size:12px;color:var(--accent2)"></div>
   <div class="card ringwrap">
     <div class="ring">
       <svg width="200" height="200" viewBox="0 0 200 200">
@@ -354,7 +356,7 @@ let bgTick=null;
 function carryOver(silent){const undone=orderedTasks().filter(t=>!doneSessionToday(t.id)&&!isSkipped(t.id));let added=0;
   undone.forEach(t=>{if(!store.carryover.some(c=>c.name===t.name)){store.carryover.push({id:t.id,name:t.name,emoji:t.emoji,description:t.description||'',micro:(t.micro||[]).slice()});added++;}});
   save();if(!silent){try{alert(added?(added+" undone task(s) queued for tomorrow ✓"):"Nothing undone to carry over.");}catch(e){}}return added;}
-function checkRollover(){if(store.lastDay&&store.lastDay!==dayKey()){if(store.autoCarry)carryOver(true);store.lastDay=dayKey();save();}}
+function checkRollover(){if(store.lastDay&&store.lastDay!==dayKey()){if(store.autoCarry)carryOver(true);store.lastDay=dayKey();save();return true;}return false;}
 function delegate(id){const t=store.tasks.find(x=>x.id===id);if(!t)return;
   store.bg.push({id:'b'+Date.now(),taskId:id,taskName:t.name,emoji:t.emoji,owner:'Claude',kind:t.kind||'main',start:nowISO(),micro:t.micro.map(m=>({name:m,done:true,at:nowISO()}))});
   save();blip();renderToday();}
@@ -426,6 +428,13 @@ function renderToday(){
   document.getElementById('tring-fg').style.strokeDashoffset=RING_C*(1-pct/100);
   document.getElementById('tring-pct').textContent=pct+'%';
   document.getElementById('tring-sub').textContent=`${done} / ${activeCount} main`+(bonus.length?` · ⚡${effort}`:'');
+  const dru=document.getElementById('done-rollup');
+  if(dru){
+    if(activeCount&&done>=activeCount){const _s=sessionsOn(dayKey()),_t=_s.reduce((a,s)=>a+(s.durMs||0),0);
+      dru.className='card';dru.style.cssText='border:1px solid var(--accent);background:linear-gradient(180deg,#10231a,#0e120c)';
+      dru.innerHTML=`<div style="font-weight:800;font-size:16px">✅ All ${activeCount} main tasks done — nice work.</div><div class="tsub" style="margin-top:4px">${_s.length} session${_s.length===1?'':'s'} · ${mins(_t)} focused${bonus.length?` · ⚡${effort} bonus`:''} · 🔥 ${streakCount()} day streak</div>`;
+    } else { dru.className='hidden'; dru.innerHTML=''; }
+  }
   const efl=document.getElementById('effort-line');if(efl)efl.textContent=bonus.length?`⚡ ${effort} / ${effortMax} bonus effort`:'';
   const fp=window._plan,bn=document.getElementById('plan-banner');
   if(bn){
@@ -462,9 +471,14 @@ function setRing(el,done,total){const pct=total?Math.round(done/total*100):0;
   document.getElementById(el+'-fg').style.strokeDashoffset=RING_C*(1-pct/100);
   document.getElementById(el+'-pct').textContent=pct+'%';
   document.getElementById(el+'-sub').textContent=`${done} / ${total} done`;}
+/* avg finished duration for a task (needs >=2 past runs to be meaningful) — powers the pace nudge */
+function taskAvgMs(taskId){const xs=store.sessions.filter(s=>s.taskId===taskId&&s.end&&s.durMs>0);
+  if(xs.length<2)return null;return xs.reduce((a,s)=>a+s.durMs,0)/xs.length;}
 function renderSession(){
   document.getElementById('sess-title').textContent=active.taskName;
   const dsc=document.getElementById('sess-desc');dsc.textContent=active.description||'';dsc.classList.toggle('hidden',!active.description);
+  const pace=document.getElementById('sess-pace');if(pace){const _avg=taskAvgMs(active.taskId);
+    if(_avg){pace.classList.remove('hidden');pace.textContent='⌀ You usually finish this in ~'+mins(_avg);}else pace.classList.add('hidden');}
   document.getElementById('sess-start').textContent=tOnly(active.start);
   const se=document.getElementById('sess-start-edit');if(se)se.value=hhmm(active.start);
   const en=document.getElementById('sess-end');if(en)en.textContent=active.end?tOnly(active.end):'running';
@@ -511,7 +525,8 @@ function applyEndEdit(t){if(!active)return;
   const ee=document.getElementById('sess-end-edit');if(ee)ee.value=hhmm(active.end);
   document.getElementById('sess-timer').textContent=clock(active.durMs||0);}
 /* iOS purges/throttles backgrounded web apps — force-refresh elapsed the moment we return, and revive a dead interval */
-function refreshOnReturn(){if(active&&!active._editing&&!active.end){if(!tick)tick=setInterval(updTimer,1000);updTimer();}
+function refreshOnReturn(){if(checkRollover())renderToday();/* app reopened across midnight → roll the day + rebuild Today */
+  if(active&&!active._editing&&!active.end){if(!tick)tick=setInterval(updTimer,1000);updTimer();}
   if(store.bg&&store.bg.length){if(!bgTick)bgTick=setInterval(updBg,1000);updBg();}}
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshOnReturn();});
 window.addEventListener('pageshow',refreshOnReturn);
@@ -579,7 +594,8 @@ function saveSummary(){active.output=document.getElementById('sum-output').value
   const sv=document.getElementById('sum-start').value,ev=document.getElementById('sum-end').value;
   if(sv)active.start=timeToISO(active.start,sv);
   if(ev)active.end=timeToISO(active.end||active.start,ev);
-  if(active.end)active.durMs=new Date(active.end)-new Date(active.start);
+  if(active.end){if(new Date(active.end)<new Date(active.start)){const _d=new Date(active.end);_d.setDate(_d.getDate()+1);active.end=_d.toISOString();}
+    active.durMs=Math.max(0,new Date(active.end)-new Date(active.start)-(active.pausedMs||0));}
   if(active._editing){
     const origStartISO=active._origStartISO;
     const idx=store.sessions.findIndex(x=>x.id===active.id);
