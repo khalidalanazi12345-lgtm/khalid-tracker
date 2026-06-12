@@ -957,6 +957,16 @@ function peekTasksFor(dk){const t=dayKey();
     return list;}
   return sessionsOn(dk).sort((a,b)=>new Date(a.start)-new Date(b.start)).map(s=>({emoji:'',name:s.title||s.taskName,meta:tOnly(s.start)+'–'+tOnly(s.end),status:'done'}));}
 function togglePeek(){store.peekOpen=!store.peekOpen;save();renderDayPeek();}
+/* compact CSS ring (no SVG/id) for the per-day summary */
+function miniRing(pct){return `<div style="width:50px;height:50px;border-radius:50%;flex:0 0 50px;background:conic-gradient(var(--accent) ${pct}%,#1c241a 0)"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center"><div style="width:38px;height:38px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px">${pct}%</div></div></div>`;}
+function peekSummaryHtml(dk){const t=dayKey();
+  if(dk===t){const mains=orderedTasks().filter(x=>!isBonus(x)&&!isSkipped(x.id));
+    const dn=mains.filter(x=>doneSessionToday(x.id)).length,tot=mains.length,pct=tot?Math.round(dn/tot*100):0;
+    const focus=sessionsOn(t).filter(s=>(s.owner||'Me')!=='Claude').reduce((a,s)=>a+(s.durMs||0),0);
+    return `<div class="row" style="gap:12px;margin-bottom:12px">${miniRing(pct)}<div style="min-width:0"><div style="font-weight:700">${dn}/${tot} main done</div><div class="tsub">${focus?mins(focus)+' focused today':'—'}</div></div></div>`;}
+  if(dk>t){const n=peekTasksFor(dk).length;return `<div class="tsub" style="margin-bottom:10px">🗓 ${n} task${n===1?'':'s'} planned for this day</div>`;}
+  const ss=sessionsOn(dk).filter(s=>(s.owner||'Me')!=='Claude');const focus=ss.reduce((a,s)=>a+(s.durMs||0),0);
+  return `<div class="tsub" style="margin-bottom:10px">✓ ${ss.length} session${ss.length===1?'':'s'}${focus?' · '+mins(focus)+' focused':''}</div>`;}
 function navPeek(n){const nd=addDayKey(peekDate,n);if(nd>addDayKey(dayKey(),7)||nd<addDayKey(dayKey(),-7))return;peekDate=nd;renderDayPeek();}
 function renderDayPeek(){const el=document.getElementById('day-peek');if(!el)return;const t=dayKey();
   if(!store.peekOpen){const n=peekTasksFor(addDayKey(t,1)).length;
@@ -980,6 +990,7 @@ function renderDayPeek(){const el=document.getElementById('day-peek');if(!el)ret
       <button class="arrow" onclick="navPeek(-1)">◀</button>
       <select onchange="peekDate=this.value;renderDayPeek()" style="flex:1;margin:0">${opts}</select>
       <button class="arrow" onclick="navPeek(1)">▶</button></div>
+    ${peekSummaryHtml(peekDate)}
     ${tomorrow?'<div class="hint" style="margin:-2px 2px 8px">⭐ = first task · ▲▼ reorder · tap a name to rename</div>':''}${body}`;}
 function peekAddTask(){const name=prompt("New task for tomorrow:");if(!name||!name.trim())return;
   const emoji=(prompt("An emoji? (optional)","🏋️")||'').trim();
