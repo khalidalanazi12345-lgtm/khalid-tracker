@@ -339,12 +339,12 @@ function carryOver(silent){const undone=orderedTasks().filter(t=>!doneSessionTod
   save();if(!silent){try{alert(added?(added+" undone task(s) queued for tomorrow ✓"):"Nothing undone to carry over.");}catch(e){}}return added;}
 function checkRollover(){if(store.lastDay&&store.lastDay!==dayKey()){if(store.autoCarry)carryOver(true);store.lastDay=dayKey();save();}}
 function delegate(id){const t=store.tasks.find(x=>x.id===id);if(!t)return;
-  store.bg.push({id:'b'+Date.now(),taskId:id,taskName:t.name,emoji:t.emoji,owner:'Claude',start:nowISO(),micro:t.micro.map(m=>({name:m,done:true,at:nowISO()}))});
+  store.bg.push({id:'b'+Date.now(),taskId:id,taskName:t.name,emoji:t.emoji,owner:'Claude',kind:t.kind||'main',start:nowISO(),micro:t.micro.map(m=>({name:m,done:true,at:nowISO()}))});
   save();blip();renderToday();}
 function finishBg(bid){const i=store.bg.findIndex(b=>b.id===bid);if(i<0)return;const b=store.bg[i];
   b.end=nowISO();b.durMs=new Date(b.end)-new Date(b.start);
   if(store.testMode){store.bg.splice(i,1);save();renderToday();try{alert("🧪 Test mode — delegated task NOT logged.");}catch(e){}return;}
-  const sObj={id:b.id,taskId:b.taskId,taskName:b.taskName,owner:'Claude',title:'🤖 '+b.taskName,start:b.start,end:b.end,durMs:b.durMs,micro:b.micro,output:'',reflection:'',steps:[],_slow:null};
+  const sObj={id:b.id,taskId:b.taskId,taskName:b.taskName,owner:'Claude',kind:b.kind||'main',title:'🤖 '+b.taskName,start:b.start,end:b.end,durMs:b.durMs,micro:b.micro,output:'',reflection:'',steps:[],_slow:null};
   store.sessions.push(sObj);store.bg.splice(i,1);save();pushToSheet(sObj);renderToday();
   try{alert("🤖 Delegated task logged ✓");}catch(e){}}
 function updBg(){store.bg.forEach(b=>{const e=document.getElementById('bgt-'+b.id);if(e)e.textContent=clock(Date.now()-new Date(b.start));});}
@@ -435,7 +435,7 @@ function renderToday(){
 function startSession(id){const t=store.tasks.find(x=>x.id===id);if(!t)return;
   if(active&&!active.end){if(active.taskId===id){go('session');renderSession();if(!tick)tick=setInterval(updTimer,1000);updTimer();return;}
     if(!confirm('“'+active.taskName+'” is still running. Pause it and start “'+t.name+'”? You can resume it later from Today.'))return;parkActive();}
-  active={id:'s'+Date.now(),taskId:id,taskName:t.name,owner:'Me',description:t.description||'',title:'',start:nowISO(),end:null,pausedMs:0,pauseStart:null,micro:t.micro.map(m=>({name:m,done:false,at:null,note:null})),output:'',reflection:'',ideas:''};
+  active={id:'s'+Date.now(),taskId:id,taskName:t.name,owner:'Me',kind:t.kind||'main',description:t.description||'',title:'',start:nowISO(),end:null,pausedMs:0,pauseStart:null,micro:t.micro.map(m=>({name:m,done:false,at:null,note:null})),output:'',reflection:'',ideas:''};
   try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();}catch(e){}
   persistActive();go('session');renderSession();tick=setInterval(updTimer,1000);updTimer();}
 function setRing(el,done,total){const pct=total?Math.round(done/total*100):0;
@@ -561,7 +561,7 @@ function saveSummary(){active.output=document.getElementById('sum-output').value
     const idx=store.sessions.findIndex(x=>x.id===active.id);
     const clean=Object.assign({},active);delete clean._editing;delete clean._origStartISO;delete clean._finished;
     if(idx>=0)store.sessions[idx]=clean;else store.sessions.push(clean);save();
-    if(!store.testMode){post({type:'edit',sid:clean.id,origStartISO:origStartISO,title:(clean.title||clean.taskName),task:clean.taskName,colorId:goldIf(clean.owner),owner:clean.owner||'Me',
+    if(!store.testMode){post({type:'edit',sid:clean.id,origStartISO:origStartISO,title:(clean.title||clean.taskName),task:clean.taskName,colorId:goldIf(clean),owner:clean.owner||'Me',
       date:new Date(clean.start).toLocaleDateString(),start_time:tOnly(clean.start),end_time:tOnly(clean.end),startISO:clean.start,endISO:clean.end,
       duration_min:Math.round(clean.durMs/60000),checked:clean.micro.filter(m=>m.done).length,total:clean.micro.length,output:clean.output,
       slowest_step:clean._slow?clean._slow.name:'',slowest_min:clean._slow?Math.round(clean._slow.durMs/60000):'',reflection:clean.reflection||''});}
@@ -572,7 +572,7 @@ function saveSummary(){active.output=document.getElementById('sum-output').value
 
 /* sheet + calendar */
 function rowFor(s){return{type:'session',date:new Date(s.start).toLocaleDateString(),task:s.taskName,
-  title:(s.title||s.taskName),colorId:goldIf(s.owner),sid:s.id,owner:s.owner||'Me',
+  title:(s.title||s.taskName),colorId:goldIf(s),sid:s.id,owner:s.owner||'Me',
   start_time:tOnly(s.start),end_time:s.end?tOnly(s.end):'',startISO:s.start,endISO:s.end,
   duration_min:s.end?Math.round(s.durMs/60000):'',checked:s.micro.filter(m=>m.done).length,total:s.micro.length,
   output:(s.output||'')+(s.ideas?(' · ideas:'+s.ideas):''),slowest_step:s._slow?s._slow.name:'',
@@ -587,8 +587,10 @@ function resendOutbox(){if(store.testMode||!store.outbox.length)return;
   store.outbox.forEach(x=>rawSend(x.obj));store.lastSync=Date.now();save();}
 function pushToSheet(s){const el=document.getElementById('sync-status');if(el)el.innerHTML='<span class="off">Syncing to Sheet + Calendar…</span>';
   post(rowFor(s),()=>{if(el)el.innerHTML='<span class="ok">✓ Sent to Sheet + Calendar</span>';});}
-/* Claude/bonus = gold (Banana, colorId 5); my main tasks = green (colorId 10) */
-function goldIf(owner){return (owner||'Me')==='Claude'?'5':'10';}
+/* GREEN (10) is ONLY my own main tasks. Everything else — Claude work OR bonus tasks
+   (even ones I do myself) — logs GOLD (Banana, colorId 5). */
+function goldIf(s){return ((s.owner||'Me')==='Claude'||s.kind==='bonus')?'5':'10';}
+function isGold(s){return s.colorId==='5'||(s.owner||'Me')==='Claude'||s.kind==='bonus';}
 /* live-pull what Claude Code logged this week (JSONP — cross-origin GET to Apps Script).
    Keeps ONLY remote rows not already logged on THIS device, so the app never double-counts. */
 let _claudePullAt=0;
@@ -686,8 +688,8 @@ function renderHistory(){
   const list=allSessionsOn(logDate).sort((a,b)=>new Date(a.start)-new Date(b.start));
   if(!list.length){el.innerHTML='<div class="hint">No sessions logged on this day.</div>';return;}
   list.forEach(s=>{const done=s.micro.filter(m=>m.done).length;
-    const gold=(s.owner==='Claude');const microTxt=s.micro.length?` · ${done}/${s.micro.length}`:'';
-    el.innerHTML+=`<div class="hist"${gold?' style="border-left:3px solid var(--amber)"':''}><div class="row"><div style="min-width:0"><div class="hname"${gold?' style="color:var(--amber)"':''}>${gold?'🤖 ':''}${s.title||s.taskName}</div>
+    const gold=isGold(s),claude=(s.owner==='Claude');const microTxt=s.micro.length?` · ${done}/${s.micro.length}`:'';
+    el.innerHTML+=`<div class="hist"${gold?' style="border-left:3px solid var(--amber)"':''}><div class="row"><div style="min-width:0"><div class="hname"${gold?' style="color:var(--amber)"':''}>${claude?'🤖 ':''}${s.title||s.taskName}</div>
       <div class="hmeta">${tOnly(s.start)}–${tOnly(s.end)} · ${mins(s.durMs)}${microTxt}${s.output?' · '+s.output:''}</div>
       ${s.reflection?`<div class="note">⚑ ${s.reflection}</div>`:''}</div>
       ${s._remote?'<div class="pill" style="color:var(--amber);border-color:#3a2f15;align-self:flex-start">live</div>':`<div style="white-space:nowrap"><button class="btn sm ghost" onclick="editSession('${s.id}')">Edit</button> <button class="btn sm ghost" style="color:var(--red)" onclick="deleteSession('${s.id}')">✕</button></div>`}</div></div>`;});}
