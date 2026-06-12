@@ -228,6 +228,14 @@
     <div class="synced" id="url-state"></div>
     <div class="synced" id="sync-state2"></div>
   </div>
+  <div class="card">
+    <div style="font-weight:700">Backup &amp; restore</div>
+    <div class="hint" style="margin:6px 0 10px">Your data lives only in this browser. Export a backup regularly — clearing the cache or moving to a new URL wipes it otherwise.</div>
+    <button class="btn sm" onclick="exportBackup()">⬇ Export backup (JSON)</button>
+    <label class="btn sm ghost" style="margin-top:8px;display:inline-block">⬆ Restore from file<input type="file" accept="application/json,.json" onchange="importBackup(this.files[0])" style="display:none"></label>
+    <button class="btn sm ghost" style="margin-top:8px" onclick="exportCSV()">⬇ Export sessions (CSV)</button>
+    <div class="synced" id="backup-state"></div>
+  </div>
   <div class="card"><div class="row"><span class="hint">Sound + haptic on check</span>
     <button class="tinybtn" id="fx-toggle" onclick="toggleFx()"></button></div></div>
   <div class="card"><div class="row"><span class="hint">🧪 Test mode — sandbox: run sessions normally, but nothing is saved or written to calendar/sheet</span>
@@ -316,6 +324,8 @@ function toggleKind(id){const t=store.tasks.find(x=>x.id===id);if(!t)return;
   save();blip();renderToday();}
 function cyclePts(id){const t=store.tasks.find(x=>x.id===id);if(!t||!isBonus(t))return;
   const seq=[5,10,20];const i=seq.indexOf(taskPts(t));t.pts=seq[(i+1)%seq.length];save();renderToday();}
+/* workout type: tap badge to set/cycle Push→Pull→Legs→Run+Abs */
+function cycleWtype(id){const t=store.tasks.find(x=>x.id===id);if(!t)return;t.wtype=nextWtype(t.wtype||store.lastWtype||'');save();blip();renderToday();}
 let logDate=dayKey(),notesDate=dayKey(),peekDate=addDayKey(dayKey(),1);
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function addDayKey(dk,n){const d=new Date(dk+'T00:00');d.setDate(d.getDate()+n);return dayKey(d);}
@@ -367,7 +377,8 @@ function renderToday(){
     else if(running)right=`<span class="status st-skip">🤖 running</span>`;
     else if(sk)right=`<span class="status st-skip">skipped</span>`;
     else right=`<button class="btn sm" onclick="startSession('${t.id}')">Start</button> <button class="btn sm ghost" onclick="delegate('${t.id}')" title="Delegate to Claude">🤖</button>`;
-    const wbadge=t.wtype?`<span class="wbadge">${esc(t.wtype)}</span>`:'';
+    const _pwt=t.wtype||(t.id==='workout'&&store.lastWtype?nextWtype(store.lastWtype):'');
+    const wbadge=_pwt?`<span class="wbadge" onclick="event.stopPropagation();cycleWtype('${t.id}')" title="tap to set workout type">${esc(_pwt)}${!t.wtype?' ·?':''}</span>`:(t.id==='workout'?`<span class="wbadge" onclick="event.stopPropagation();cycleWtype('${t.id}')" title="tap to set workout type">set type</span>`:'');
     const ptsbadge=isBonus(t)?`<span class="ptspill" onclick="event.stopPropagation();cyclePts('${t.id}')" title="tap: 5 / 10 / 20">+${taskPts(t)}</span>`:'';
     const d=document.createElement('div');d.className='card';d.style.cursor='pointer';
     d.onclick=()=>previewTask(t.id);
@@ -396,6 +407,9 @@ function renderToday(){
       const dl=new Date(fp.date+'T00:00').toLocaleDateString([],{weekday:'long',month:'short',day:'numeric'});
       bn.className='card';
       bn.innerHTML=`<div class="row"><div style="min-width:0"><div style="font-weight:700">▶ Next day's plan is ready</div><div class="tsub">${dl} · ${fp.tasks.length} tasks · auto-loads at midnight</div></div><button class="btn sm" onclick="startNextDay()">Start now</button></div>`;
+    } else if(fp&&fp.date===dayKey()&&store.appliedPlanDate!==fp.date){
+      bn.className='card';
+      bn.innerHTML=`<div class="row"><div style="min-width:0"><div style="font-weight:700">📋 Today's plan is ready</div><div class="tsub">${fp.tasks.length} tasks · tap to apply (replaces today's list)</div></div><button class="btn sm" onclick="startNextDay()">Apply</button></div>`;
     } else { bn.className='hidden'; bn.innerHTML=''; }
   }
   const bl=document.getElementById('bg-list');
@@ -502,7 +516,8 @@ function renderActiveBanner(){const ab=document.getElementById('active-banner');
   ab.className=h?'':'hidden';ab.innerHTML=h;
   if(active&&!active.end){if(!tick)tick=setInterval(updTimer,1000);updTimer();}}
 
-function finishSession(){if(active.pauseStart){active.pausedMs=(active.pausedMs||0)+(Date.now()-new Date(active.pauseStart));active.pauseStart=null;}if(!active._editing&&!active.end)active.end=nowISO();active.durMs=Math.max(0,new Date(active.end)-new Date(active.start)-(active.pausedMs||0));active._finished=true;if(tick)clearInterval(tick);
+function finishSession(){if(active.taskId==='workout'){const _wt=(store.tasks.find(t=>t.id===active.taskId)||{}).wtype;if(_wt)store.lastWtype=_wt;}
+  if(active.pauseStart){active.pausedMs=(active.pausedMs||0)+(Date.now()-new Date(active.pauseStart));active.pauseStart=null;}if(!active._editing&&!active.end)active.end=nowISO();active.durMs=Math.max(0,new Date(active.end)-new Date(active.start)-(active.pausedMs||0));active._finished=true;if(tick)clearInterval(tick);
   const checked=active.micro.filter(m=>m.done).sort((a,b)=>new Date(a.at)-new Date(b.at));let prev=new Date(active.start);
   active.steps=checked.map(m=>{const dur=new Date(m.at)-prev;prev=new Date(m.at);return{name:m.name,durMs:dur};});
   persistActive();renderSummary();go('summary');}
@@ -563,7 +578,7 @@ function post(obj,onok){if(store.testMode)return;
 function resendOutbox(){if(store.testMode||!store.outbox.length)return;
   store.outbox.forEach(x=>rawSend(x.obj));store.lastSync=Date.now();save();}
 function pushToSheet(s){const el=document.getElementById('sync-status');if(el)el.innerHTML='<span class="off">Syncing to Sheet + Calendar…</span>';
-  post(rowFor(s),()=>{if(el)el.innerHTML='<span class="ok">✓ Logged to Sheet + Calendar</span>';});}
+  post(rowFor(s),()=>{if(el)el.innerHTML='<span class="ok">✓ Sent to Sheet + Calendar</span>';});}
 
 /* review */
 function windowSessions(daysAgoStart,daysAgoEnd){const now=Date.now();
@@ -638,6 +653,15 @@ function exportCSV(){let rows=[["date","task","start","end","duration_min","chec
   store.sessions.filter(s=>s.end).forEach(s=>{const r=rowFor(s);rows.push([r.date,r.task,r.start_time,r.end_time,r.duration_min,r.checked,r.total,r.output,r.slowest_step,r.slowest_min,r.reflection]);});
   const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='production-log.csv';a.click();}
+/* full backup/restore of the whole store (the ONLY safeguard against localStorage loss) */
+function exportBackup(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(store)],{type:'application/json'}));a.download='khalid-tracker-backup-'+dayKey()+'.json';a.click();
+  const e=document.getElementById('backup-state');if(e)e.innerHTML='<span class="ok">✓ Backup downloaded</span>';}
+function importBackup(file){if(!file)return;const r=new FileReader();
+  r.onload=()=>{try{const o=JSON.parse(r.result);if(!o||typeof o!=='object'||!('tasks'in o||'sessions'in o))throw 0;
+    if(!confirm('Restore this backup? It REPLACES all current app data on this device.'))return;
+    localStorage.setItem(LS,JSON.stringify(o));alert('Restored ✓ — reloading.');location.reload();}
+   catch(e){alert("That file isn't a valid tracker backup.");}};
+  r.readAsText(file);}
 
 /* settings / editor */
 function renderSyncState(){const e=document.getElementById('sync-state2');if(e)e.innerHTML=store.lastSync?('<span class="ok">Last sync: '+tOnly(store.lastSync)+'</span>'+(store.outbox.length?(' · '+store.outbox.length+' queued (auto-resends)'):'')):'<span class="off">nothing sent yet</span>';}
@@ -682,7 +706,11 @@ function startNextDay(){if(window._plan){adoptPlan(window._plan);try{alert("Star
 function fetchPlan(){fetch('plan.json?t='+Date.now()).then(r=>r.ok?r.json():null).then(p=>{
   if(!p||!p.date||!Array.isArray(p.tasks))return;
   window._plan=p;
-  if(p.date===dayKey()&&store.appliedPlanDate!==p.date){adoptPlan(p);try{alert("Today's plan loaded ✓");}catch(e){}}
+  if(p.date===dayKey()&&store.appliedPlanDate!==p.date){
+    /* guard: don't silently wipe a day you've already started — renderToday shows an apply banner instead */
+    const started=store.sessions.some(s=>dayKey(s.start)===dayKey())||(active&&!active.end);
+    if(!started){adoptPlan(p);try{alert("Today's plan loaded ✓");}catch(e){}}
+  }
   renderToday();
 }).catch(()=>{});}
 
