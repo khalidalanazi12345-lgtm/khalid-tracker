@@ -347,6 +347,7 @@ function nextWtype(w){const i=WCYCLE.indexOf(w);return i<0?'Push':WCYCLE[(i+1)%W
 const isBonus=t=>t.kind==='bonus';
 const taskPts=t=>(t.pts||(isBonus(t)?10:0));
 function removeTaskToday(id){const t=store.tasks.find(x=>x.id===id);if(!t)return;
+  if(id==='workout'){try{alert('Workout is a permanent daily task — use “skip today” instead so the Push→Pull→Legs→Run+Abs cycle keeps rolling.');}catch(e){}return;}
   if(!confirm('Remove “'+t.name+'” from today’s list?'))return;
   store.tasks=store.tasks.filter(x=>x.id!==id);store.order=store.order.filter(x=>x!==id);save();renderToday();}
 function toggleKind(id){const t=store.tasks.find(x=>x.id===id);if(!t)return;
@@ -622,7 +623,7 @@ function renderActiveBanner(){const ab=document.getElementById('active-banner');
   ab.className=h?'':'hidden';ab.innerHTML=h;
   if(active&&!active.end){if(!tick)tick=setInterval(updTimer,1000);updTimer();}}
 
-function finishSession(){if(active.taskId==='workout'){const _wt=(store.tasks.find(t=>t.id===active.taskId)||{}).wtype;if(_wt)store.lastWtype=_wt;}
+function finishSession(){if(active.taskId==='workout'){const _t=(store.tasks.find(t=>t.id===active.taskId)||{});const _wt=_t.wtype||(store.lastWtype?nextWtype(store.lastWtype):'');if(_wt){store.lastWtype=_wt;if(!_t.wtype)_t.wtype=_wt;}}
   if(active.pauseStart){active.pausedMs=(active.pausedMs||0)+(Date.now()-new Date(active.pauseStart));active.pauseStart=null;}if(!active._editing&&!active.end)active.end=nowISO();active.durMs=Math.max(0,new Date(active.end)-new Date(active.start)-(active.pausedMs||0));active._finished=true;if(tick)clearInterval(tick);
   const checked=active.micro.filter(m=>m.done).sort((a,b)=>new Date(a.at)-new Date(b.at));let prev=new Date(active.start);
   active.steps=checked.map(m=>{const dur=new Date(m.at)-prev;prev=new Date(m.at);return{name:m.name,durMs:dur};});
@@ -944,6 +945,8 @@ function adoptPlan(p){
   store.tasks=p.tasks.map(t=>({id:(t.id||slug(t.name)),name:t.name,emoji:t.emoji||'•',description:t.description||'',micro:t.micro||[],kind:t.kind||'main',pts:t.pts||0,wtype:t.wtype||''}));
   (store.carryover||[]).forEach(c=>{if(!store.tasks.some(t=>t.name===c.name)){store.tasks.push({id:c.id||slug(c.name),name:c.name,emoji:c.emoji||'•',description:c.description||'',micro:c.micro||[],kind:c.kind||'main',pts:c.pts||0,wtype:c.wtype||''});}});
   store.carryover=[];
+  if(!store.tasks.some(t=>t.id==='workout')){const W=DEFAULT_TASKS.find(t=>t.id==='workout');if(W)store.tasks.unshift(JSON.parse(JSON.stringify(W)));}
+  const _w=store.tasks.find(t=>t.id==='workout');if(_w&&_w.wtype)store.lastWtype=_w.wtype;
   store.order=store.tasks.map(t=>t.id);store.appliedPlanDate=p.date;save();renderToday();}
 function startNextDay(){if(window._plan){adoptPlan(window._plan);try{alert("Started plan for "+window._plan.date+" ✓");}catch(e){}}}
 function fetchPlan(){fetch('plan.json?t='+Date.now()).then(r=>r.ok?r.json():null).then(p=>{
