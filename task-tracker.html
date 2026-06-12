@@ -320,7 +320,7 @@ const DEFAULT_TASKS=[
 ];
 const BAKED_SHEET_URL="https://script.google.com/macros/s/AKfycbxfqJIjFZaBLJE4jjV6jJXELsLfvxFYq96l_V4ffCa3woLiBNYnb6qd0GxBu8b9FxjF/exec";
 
-const BUILD="2026-06-12.12";/* bump this + version.json on every deploy so the app can detect updates */
+const BUILD="2026-06-12.13";/* bump this + version.json on every deploy so the app can detect updates */
 const LS="khalid_prod_tracker_v4";
 let store=JSON.parse(localStorage.getItem(LS)||'null')||{};
 store.sessions=store.sessions||[]; store.sheetUrl=store.sheetUrl||"";
@@ -361,7 +361,7 @@ function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'
 function addDayKey(dk,n){const d=new Date(dk+'T00:00');d.setDate(d.getDate()+n);return dayKey(d);}
 function dayLabelOf(dk){const t=dayKey();if(dk===t)return'Today';if(dk===addDayKey(t,-1))return'Yesterday';if(dk===addDayKey(t,1))return'Tomorrow';return new Date(dk+'T00:00').toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'});}
 function sessionsOn(dk){return store.sessions.filter(s=>s.end&&dayKey(s.start)===dk);}
-store.bg=store.bg||[]; store.remoteSessions=store.remoteSessions||[]; store.carryover=store.carryover||[]; if(store.autoCarry===undefined)store.autoCarry=false; store.lastDay=store.lastDay||dayKey(); store.outbox=store.outbox||[]; store.lastSync=store.lastSync||0; store.notes=store.notes||{}; if(store.peekOpen===undefined)store.peekOpen=false; store.parked=store.parked||[]; store.parkedTs=store.parkedTs||0; if(store.cloudSync===undefined)store.cloudSync=false;
+store.bg=store.bg||[]; store.remoteSessions=store.remoteSessions||[]; store.carryover=store.carryover||[]; if(store.autoCarry===undefined)store.autoCarry=false; store.lastDay=store.lastDay||dayKey(); store.outbox=store.outbox||[]; store.lastSync=store.lastSync||0; store.notes=store.notes||{}; if(store.peekOpen===undefined)store.peekOpen=false; store.parked=store.parked||[]; store.parkedTs=store.parkedTs||0; if(store.cloudSync===undefined)store.cloudSync=false; store.deletedSids=store.deletedSids||[];
 let bgTick=null;
 /* move ONE task to tomorrow (queue it for the next day + take it off today) */
 function moveToTomorrow(id){const t=store.tasks.find(x=>x.id===id);if(!t)return;
@@ -702,7 +702,7 @@ function pullClaudeLogs(cb){
       const rows=(data&&data.sessions)||[];
       store.syncedSids=rows.map(r=>String(r.sid||'')).filter(Boolean);/* read-back: which sessions are confirmed in the Sheet */
       const localSids=new Set(store.sessions.map(s=>s.id));
-      store.remoteSessions=rows.filter(r=>r.sid&&!localSids.has(r.sid)).map(r=>({
+      store.remoteSessions=rows.filter(r=>r.sid&&!localSids.has(r.sid)&&(store.deletedSids||[]).indexOf(r.sid)<0).map(r=>({
         id:r.sid,taskId:r.taskId||'',taskName:r.task||r.title||'task',title:r.title||r.task||'task',
         owner:r.owner||'Claude',start:r.startISO,end:r.endISO,
         durMs:(r.startISO&&r.endISO)?(new Date(r.endISO)-new Date(r.startISO)):0,
@@ -772,8 +772,8 @@ function pushWeekly(){const wk=windowSessions(7,0);const totMin=Math.round(wk.re
 
 /* history — week navigator + editable sessions */
 function navLog(n){const nd=addDayKey(logDate,n);if(nd>dayKey()||nd<addDayKey(dayKey(),-7))return;logDate=nd;renderHistory();}
-function editSession(sid){const s=store.sessions.find(x=>x.id===sid);if(!s||!s.end)return;
-  active=JSON.parse(JSON.stringify(s));active._editing=true;active._origStartISO=s.start;
+function editSession(sid){const s=store.sessions.find(x=>x.id===sid)||(store.remoteSessions||[]).find(x=>x.id===sid);if(!s||!s.end)return;
+  active=JSON.parse(JSON.stringify(s));active._editing=true;active._origStartISO=s.start;delete active._remote;if(!active.micro)active.micro=[];
   try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();}catch(e){}
   if(tick){clearInterval(tick);tick=null;}
   persistActive();go('session');renderSession();
@@ -792,6 +792,16 @@ function deleteSession(sid){const i=store.sessions.findIndex(x=>x.id===sid);if(i
   const o=s.start;store.sessions.splice(i,1);save();
   post({type:'delete',sid:sid,origStartISO:o});
   renderHistory();try{alert(store.testMode?"🧪 Test mode — deleted locally only.":"Deleted ✓ — removing from calendar + sheet.");}catch(e){}}
+/* remove a "live"/Claude-logged (remote) session: delete it from the Sheet + calendar and remember
+   the sid so it doesn't get pulled back in before the delete propagates */
+function deleteRemote(sid){const s=(store.remoteSessions||[]).find(x=>x.id===sid);if(!s)return;
+  if(!confirm('Remove this Claude-logged session? Deletes it from the sheet + calendar.'))return;
+  store.remoteSessions=(store.remoteSessions||[]).filter(x=>x.id!==sid);
+  store.deletedSids=store.deletedSids||[];if(store.deletedSids.indexOf(sid)<0)store.deletedSids.push(sid);
+  if(store.deletedSids.length>200)store.deletedSids=store.deletedSids.slice(-200);
+  save();post({type:'delete',sid:sid,origStartISO:s.start});
+  renderHistory();renderClaudeStrip();renderToday();
+  try{alert("Removed ✓ — deleting from sheet + calendar.");}catch(e){}}
 /* read-back verification: is this local session confirmed present in the Sheet? */
 function sessVerified(s){if((store.syncedSids||[]).indexOf(String(s.id))>=0)return 'ok';
   return (Date.now()-new Date(s.start))<8*864e5?'pending':'';}
@@ -811,7 +821,7 @@ function renderHistory(){
     el.innerHTML+=`<div class="hist"${gold?' style="border-left:3px solid var(--amber)"':''}><div class="row"><div style="min-width:0"><div class="hname"${gold?' style="color:var(--amber)"':''}>${claude?'🤖 ':''}${s.title||s.taskName}</div>
       <div class="hmeta">${tOnly(s.start)}–${tOnly(s.end)} · ${mins(s.durMs)}${microTxt}${vTxt}${s.output?' · '+s.output:''}</div>
       ${s.reflection?`<div class="note">⚑ ${s.reflection}</div>`:''}</div>
-      ${s._remote?'<div class="pill" style="color:var(--amber);border-color:#3a2f15;align-self:flex-start">live</div>':`<div style="white-space:nowrap"><button class="btn sm ghost" onclick="editSession('${s.id}')">Edit</button> <button class="btn sm ghost" style="color:var(--red)" onclick="deleteSession('${s.id}')">✕</button></div>`}</div></div>`;});}
+      ${s._remote?`<div style="white-space:nowrap"><span class="pill" style="color:var(--amber);border-color:#3a2f15">live</span> <button class="btn sm ghost" onclick="editSession('${s.id}')">Edit</button> <button class="btn sm ghost" style="color:var(--red)" onclick="deleteRemote('${s.id}')">✕</button></div>`:`<div style="white-space:nowrap"><button class="btn sm ghost" onclick="editSession('${s.id}')">Edit</button> <button class="btn sm ghost" style="color:var(--red)" onclick="deleteSession('${s.id}')">✕</button></div>`}</div></div>`;});}
 function exportCSV(){let rows=[["date","task","start","end","duration_min","checked","total","output","slowest_step","slowest_min","reflection"]];
   store.sessions.filter(s=>s.end).forEach(s=>{const r=rowFor(s);rows.push([r.date,r.task,r.start_time,r.end_time,r.duration_min,r.checked,r.total,r.output,r.slowest_step,r.slowest_min,r.reflection]);});
   const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
