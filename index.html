@@ -762,7 +762,7 @@ function renderTestBtn(){const b=document.getElementById('test-toggle');if(b)b.t
 function toggleCarry(){store.autoCarry=!store.autoCarry;save();renderCarryBtn();}
 function renderCarryBtn(){const b=document.getElementById('carry-toggle');if(b)b.textContent=store.autoCarry?'On':'Off';}
 function toggleCloud(){if(!store.cloudSync){if(!confirm("Turn on cross-device sync?\n\nOnly do this AFTER you've pasted the script update and hit Deploy. Otherwise paused tasks won't sync and it may write junk rows."))return;}
-  store.cloudSync=!store.cloudSync;save();renderCloudBtn();if(store.cloudSync){pushParked();pullParked(()=>renderActiveBanner());}}
+  store.cloudSync=!store.cloudSync;save();renderCloudBtn();startStatePoll();if(store.cloudSync){pushParked();pullParked(()=>renderActiveBanner());}}
 function renderCloudBtn(){const b=document.getElementById('cloud-toggle');if(b)b.textContent=store.cloudSync?'On':'Off';}
 /* cross-device sync of paused/parked tasks via the Apps Script "AppState" store (last-write-wins by _ts) */
 function pushParked(){if(!store.cloudSync||store.testMode)return;
@@ -780,6 +780,10 @@ function pullParked(cb){if(!store.cloudSync){if(cb)cb();return;}
   sc.src=url+'?action=state&key=parked&callback='+fn+'&t='+Date.now();
   sc.onerror=function(){if(cb)cb();delete window[fn];try{sc.remove();}catch(e){}};
   document.body.appendChild(sc);_statePullAt=Date.now();}
+/* poll the other device every 15s while the app is open + sync is on (skips when backgrounded to save quota) */
+let _statePoll=null;
+function startStatePoll(){if(_statePoll){clearInterval(_statePoll);_statePoll=null;}
+  if(store.cloudSync)_statePoll=setInterval(function(){if(!document.hidden)pullParked();},15000);}
 function slug(s){return s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'task';}
 function syncOrder(){store.order=orderedTasks().map(t=>t.id);}
 function renderTaskEditor(){const el=document.getElementById('task-editor');el.innerHTML='';const tasks=orderedTasks();
@@ -941,7 +945,7 @@ function restoreActive(){if(!store.active)return;active=store.active;
   if(active.end){document.getElementById('sess-timer').textContent=clock(active.durMs||0);}
   else{tick=setInterval(updTimer,1000);updTimer();}}
 try{checkRollover();resendOutbox();save();setTestBar();restoreActive();}catch(e){console.warn('boot recover',e);active=null;try{delete store.active;save();}catch(_){}}
-if(!active)renderToday();fetchPlan();try{pullParked();}catch(e){}
+if(!active)renderToday();fetchPlan();try{pullParked();startStatePoll();}catch(e){}
 try{pullClaudeLogs(()=>{renderClaudeStrip();if(!document.getElementById('view-history').classList.contains('hidden'))renderHistory();});}catch(e){}
 </script>
 </body>
