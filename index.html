@@ -118,6 +118,7 @@
     <div class="efl" id="effort-line"></div>
   </div>
   <div id="bg-list"></div>
+  <div id="claude-strip"></div>
   <div id="today-list"></div>
   <div id="bonus-wrap" class="hidden">
     <div class="seclabel">⚡ Bonus tasks<span class="seclbl-sub">extra effort · not required for 100%</span></div>
@@ -331,7 +332,7 @@ function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'
 function addDayKey(dk,n){const d=new Date(dk+'T00:00');d.setDate(d.getDate()+n);return dayKey(d);}
 function dayLabelOf(dk){const t=dayKey();if(dk===t)return'Today';if(dk===addDayKey(t,-1))return'Yesterday';if(dk===addDayKey(t,1))return'Tomorrow';return new Date(dk+'T00:00').toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'});}
 function sessionsOn(dk){return store.sessions.filter(s=>s.end&&dayKey(s.start)===dk);}
-store.bg=store.bg||[]; store.carryover=store.carryover||[]; if(store.autoCarry===undefined)store.autoCarry=false; store.lastDay=store.lastDay||dayKey(); store.outbox=store.outbox||[]; store.lastSync=store.lastSync||0; store.notes=store.notes||{}; if(store.peekOpen===undefined)store.peekOpen=false; store.parked=store.parked||[];
+store.bg=store.bg||[]; store.remoteSessions=store.remoteSessions||[]; store.carryover=store.carryover||[]; if(store.autoCarry===undefined)store.autoCarry=false; store.lastDay=store.lastDay||dayKey(); store.outbox=store.outbox||[]; store.lastSync=store.lastSync||0; store.notes=store.notes||{}; if(store.peekOpen===undefined)store.peekOpen=false; store.parked=store.parked||[];
 let bgTick=null;
 function carryOver(silent){const undone=orderedTasks().filter(t=>!doneSessionToday(t.id)&&!isSkipped(t.id));let added=0;
   undone.forEach(t=>{if(!store.carryover.some(c=>c.name===t.name)){store.carryover.push({id:t.id,name:t.name,emoji:t.emoji,description:t.description||'',micro:(t.micro||[]).slice()});added++;}});
@@ -347,6 +348,12 @@ function finishBg(bid){const i=store.bg.findIndex(b=>b.id===bid);if(i<0)return;c
   store.sessions.push(sObj);store.bg.splice(i,1);save();pushToSheet(sObj);renderToday();
   try{alert("🤖 Delegated task logged ✓");}catch(e){}}
 function updBg(){store.bg.forEach(b=>{const e=document.getElementById('bgt-'+b.id);if(e)e.textContent=clock(Date.now()-new Date(b.start));});}
+/* gold strip on Today: what Claude Code logged live today (pulled from the sheet) */
+function renderClaudeStrip(){const el=document.getElementById('claude-strip');if(!el)return;
+  const today=(store.remoteSessions||[]).filter(s=>s.end&&dayKey(s.start)===dayKey()).sort((a,b)=>new Date(a.start)-new Date(b.start));
+  if(!today.length){el.innerHTML='';return;}
+  el.innerHTML='<div class="tsub" style="margin:2px 2px 8px;font-weight:700;color:var(--amber)">🤖 Claude logged today ('+today.length+')</div>'+
+    today.map(s=>`<div class="card" style="border-left:3px solid var(--amber)"><div class="row"><div class="tleft"><span class="emoji">🤖</span><div style="min-width:0"><div class="tname" style="color:var(--amber)">${s.title||s.taskName}</div><div class="tsub">${tOnly(s.start)}–${tOnly(s.end)} · ${mins(s.durMs)}${s.output?' · '+s.output:''}</div></div></div></div></div>`).join('');}
 
 /* feedback */
 let actx=null;
@@ -419,6 +426,7 @@ function renderToday(){
   }
   if(bgTick){clearInterval(bgTick);bgTick=null;}
   if(store.bg.length){updBg();bgTick=setInterval(updBg,1000);}
+  renderClaudeStrip();
   renderActiveBanner();
   renderDayPeek();
 }
@@ -553,7 +561,7 @@ function saveSummary(){active.output=document.getElementById('sum-output').value
     const idx=store.sessions.findIndex(x=>x.id===active.id);
     const clean=Object.assign({},active);delete clean._editing;delete clean._origStartISO;delete clean._finished;
     if(idx>=0)store.sessions[idx]=clean;else store.sessions.push(clean);save();
-    if(!store.testMode){post({type:'edit',sid:clean.id,origStartISO:origStartISO,title:(clean.title||clean.taskName),task:clean.taskName,colorId:'10',owner:clean.owner||'Me',
+    if(!store.testMode){post({type:'edit',sid:clean.id,origStartISO:origStartISO,title:(clean.title||clean.taskName),task:clean.taskName,colorId:goldIf(clean.owner),owner:clean.owner||'Me',
       date:new Date(clean.start).toLocaleDateString(),start_time:tOnly(clean.start),end_time:tOnly(clean.end),startISO:clean.start,endISO:clean.end,
       duration_min:Math.round(clean.durMs/60000),checked:clean.micro.filter(m=>m.done).length,total:clean.micro.length,output:clean.output,
       slowest_step:clean._slow?clean._slow.name:'',slowest_min:clean._slow?Math.round(clean._slow.durMs/60000):'',reflection:clean.reflection||''});}
@@ -564,7 +572,7 @@ function saveSummary(){active.output=document.getElementById('sum-output').value
 
 /* sheet + calendar */
 function rowFor(s){return{type:'session',date:new Date(s.start).toLocaleDateString(),task:s.taskName,
-  title:(s.title||s.taskName),colorId:'10',sid:s.id,owner:s.owner||'Me',
+  title:(s.title||s.taskName),colorId:goldIf(s.owner),sid:s.id,owner:s.owner||'Me',
   start_time:tOnly(s.start),end_time:s.end?tOnly(s.end):'',startISO:s.start,endISO:s.end,
   duration_min:s.end?Math.round(s.durMs/60000):'',checked:s.micro.filter(m=>m.done).length,total:s.micro.length,
   output:(s.output||'')+(s.ideas?(' · ideas:'+s.ideas):''),slowest_step:s._slow?s._slow.name:'',
@@ -579,6 +587,39 @@ function resendOutbox(){if(store.testMode||!store.outbox.length)return;
   store.outbox.forEach(x=>rawSend(x.obj));store.lastSync=Date.now();save();}
 function pushToSheet(s){const el=document.getElementById('sync-status');if(el)el.innerHTML='<span class="off">Syncing to Sheet + Calendar…</span>';
   post(rowFor(s),()=>{if(el)el.innerHTML='<span class="ok">✓ Sent to Sheet + Calendar</span>';});}
+/* Claude/bonus = gold (Banana, colorId 5); my main tasks = green (colorId 10) */
+function goldIf(owner){return (owner||'Me')==='Claude'?'5':'10';}
+/* live-pull what Claude Code logged this week (JSONP — cross-origin GET to Apps Script).
+   Keeps ONLY remote rows not already logged on THIS device, so the app never double-counts. */
+let _claudePullAt=0;
+function pullClaudeLogs(cb){
+  const url=store.sheetUrl||BAKED_SHEET_URL;if(!url)return;
+  const fn='__claudeCb'+Date.now();
+  window[fn]=function(data){
+    try{
+      const rows=(data&&data.sessions)||[];
+      const localSids=new Set(store.sessions.map(s=>s.id));
+      store.remoteSessions=rows.filter(r=>r.sid&&!localSids.has(r.sid)).map(r=>({
+        id:r.sid,taskId:r.taskId||'',taskName:r.task||r.title||'task',title:r.title||r.task||'task',
+        owner:r.owner||'Claude',start:r.startISO,end:r.endISO,
+        durMs:(r.startISO&&r.endISO)?(new Date(r.endISO)-new Date(r.startISO)):0,
+        micro:[],output:r.output||'',reflection:r.reflection||'',_remote:true,colorId:r.colorId||'5'}));
+      store.lastClaudePull=Date.now();save();
+    }catch(e){}
+    if(cb)cb();
+    delete window[fn];const sc=document.getElementById(fn);if(sc)sc.remove();
+  };
+  const sc=document.createElement('script');sc.id=fn;
+  sc.src=url+'?action=recent&days=8&callback='+fn+'&t='+Date.now();
+  sc.onerror=function(){if(cb)cb();delete window[fn];sc.remove();};
+  document.body.appendChild(sc);_claudePullAt=Date.now();
+}
+/* merged view: my local sessions + Claude's remote ones (local wins on sid) */
+function allSessionsOn(dk){
+  const local=sessionsOn(dk);const lsids=new Set(local.map(s=>s.id));
+  const remote=(store.remoteSessions||[]).filter(s=>s.end&&dayKey(s.start)===dk&&!lsids.has(s.id));
+  return local.concat(remote);
+}
 
 /* review */
 function windowSessions(daysAgoStart,daysAgoEnd){const now=Date.now();
@@ -642,13 +683,14 @@ function renderHistory(){
     <select onchange="logDate=this.value;renderHistory()" style="flex:1;margin:0">${opts}</select>
     <button class="arrow" onclick="navLog(1)">▶</button></div>`;
   const el=document.getElementById('hist-list');el.innerHTML='';
-  const list=sessionsOn(logDate).sort((a,b)=>new Date(a.start)-new Date(b.start));
+  const list=allSessionsOn(logDate).sort((a,b)=>new Date(a.start)-new Date(b.start));
   if(!list.length){el.innerHTML='<div class="hint">No sessions logged on this day.</div>';return;}
   list.forEach(s=>{const done=s.micro.filter(m=>m.done).length;
-    el.innerHTML+=`<div class="hist"><div class="row"><div style="min-width:0"><div class="hname">${s.title||s.taskName}</div>
-      <div class="hmeta">${tOnly(s.start)}–${tOnly(s.end)} · ${mins(s.durMs)} · ${done}/${s.micro.length}${s.output?' · '+s.output:''}</div>
+    const gold=(s.owner==='Claude');const microTxt=s.micro.length?` · ${done}/${s.micro.length}`:'';
+    el.innerHTML+=`<div class="hist"${gold?' style="border-left:3px solid var(--amber)"':''}><div class="row"><div style="min-width:0"><div class="hname"${gold?' style="color:var(--amber)"':''}>${gold?'🤖 ':''}${s.title||s.taskName}</div>
+      <div class="hmeta">${tOnly(s.start)}–${tOnly(s.end)} · ${mins(s.durMs)}${microTxt}${s.output?' · '+s.output:''}</div>
       ${s.reflection?`<div class="note">⚑ ${s.reflection}</div>`:''}</div>
-      <div style="white-space:nowrap"><button class="btn sm ghost" onclick="editSession('${s.id}')">Edit</button> <button class="btn sm ghost" style="color:var(--red)" onclick="deleteSession('${s.id}')">✕</button></div></div></div>`;});}
+      ${s._remote?'<div class="pill" style="color:var(--amber);border-color:#3a2f15;align-self:flex-start">live</div>':`<div style="white-space:nowrap"><button class="btn sm ghost" onclick="editSession('${s.id}')">Edit</button> <button class="btn sm ghost" style="color:var(--red)" onclick="deleteSession('${s.id}')">✕</button></div>`}</div></div>`;});}
 function exportCSV(){let rows=[["date","task","start","end","duration_min","checked","total","output","slowest_step","slowest_min","reflection"]];
   store.sessions.filter(s=>s.end).forEach(s=>{const r=rowFor(s);rows.push([r.date,r.task,r.start_time,r.end_time,r.duration_min,r.checked,r.total,r.output,r.slowest_step,r.slowest_min,r.reflection]);});
   const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
@@ -822,6 +864,7 @@ function closePreview(){document.getElementById('preview-modal').classList.add('
 /* nav */
 function go(v){['today','session','summary','review','history','settings','notes'].forEach(x=>document.getElementById('view-'+x).classList.toggle('hidden',x!==v));
   ['today','notes','review','history','settings'].forEach(x=>document.getElementById('nav-'+x).classList.toggle('active',x===v));
+  if(v==='today'||v==='history'){if(Date.now()-_claudePullAt>20000)pullClaudeLogs(()=>{if(v==='today')renderClaudeStrip();else renderHistory();});}
   if(v==='today')renderToday(); if(v==='review')renderReview(); if(v==='history')renderHistory(); if(v==='notes')renderNotes();
   if(v==='settings'){document.getElementById('sheet-url').value=store.sheetUrl||'';renderTaskEditor();renderFxBtn();renderTestBtn();renderCarryBtn();renderSyncState();}
   window.scrollTo(0,0);}
@@ -834,6 +877,7 @@ function restoreActive(){if(!store.active)return;active=store.active;
   else{tick=setInterval(updTimer,1000);updTimer();}}
 try{checkRollover();resendOutbox();save();setTestBar();restoreActive();}catch(e){console.warn('boot recover',e);active=null;try{delete store.active;save();}catch(_){}}
 if(!active)renderToday();fetchPlan();
+try{pullClaudeLogs(()=>{renderClaudeStrip();if(!document.getElementById('view-history').classList.contains('hidden'))renderHistory();});}catch(e){}
 </script>
 </body>
 </html>
