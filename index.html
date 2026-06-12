@@ -253,8 +253,10 @@
     <div class="hint" style="margin:6px 0 10px">Your data lives only in this browser. Export a backup regularly — clearing the cache or moving to a new URL wipes it otherwise.</div>
     <button class="btn sm" onclick="exportBackup()">⬇ Export backup (JSON)</button>
     <label class="btn sm ghost" style="margin-top:8px;display:inline-block">⬆ Restore from file<input type="file" accept="application/json,.json" onchange="importBackup(this.files[0])" style="display:none"></label>
+    <button class="btn sm ghost" style="margin-top:8px" onclick="restoreFromCloud()">☁️ Restore from cloud backup</button>
     <button class="btn sm ghost" style="margin-top:8px" onclick="exportCSV()">⬇ Export sessions (CSV)</button>
     <div class="synced" id="backup-state"></div>
+    <div class="synced" id="cloud-backup-state"></div>
   </div>
   <div class="card"><div class="row"><span class="hint">Sound + haptic on check</span>
     <button class="tinybtn" id="fx-toggle" onclick="toggleFx()"></button></div></div>
@@ -321,7 +323,7 @@ store.order=store.order||store.tasks.map(t=>t.id);
 store.skips=store.skips||{}; if(store.fx===undefined)store.fx=true; store.appliedPlanDate=store.appliedPlanDate||""; if(store.testMode===undefined)store.testMode=false;
 let active=null,tick=null; const RING_C=2*Math.PI*86;
 
-const save=()=>localStorage.setItem(LS,JSON.stringify(store));
+const save=()=>{localStorage.setItem(LS,JSON.stringify(store));scheduleBackup();};
 function persistActive(){if(active)store.active=active;else delete store.active;save();}
 const nowISO=()=>new Date().toISOString();
 const two=n=>String(n).padStart(2,'0');
@@ -750,6 +752,43 @@ function importBackup(file){if(!file)return;const r=new FileReader();
    catch(e){alert("That file isn't a valid tracker backup.");}};
   r.readAsText(file);}
 
+/* ── Cloud backup of the WHOLE store (key='store' in AppState). Auto-backs-up on every
+   change (debounced 4s). RESTORE happens ONLY when this device is empty (new device /
+   cache cleared) or you tap "Restore from cloud" — so it can NEVER reset an in-progress
+   task. Sessions also live in the Sheet, so they're trimmed oldest-first if the blob
+   nears the cell limit. ── */
+let _lastBackupAt=0;
+function isEmptyStore(){return !((store.sessions||[]).length)&&!((store.parked||[]).length)&&!store.active&&!(store.notes&&Object.keys(store.notes).length);}
+function buildBackup(){const s=Object.assign({},store);delete s.outbox;
+  let blob=JSON.stringify(s);
+  if(blob.length>45000&&Array.isArray(s.sessions)){s.sessions=s.sessions.slice();
+    while(blob.length>45000&&s.sessions.length){s.sessions.shift();blob=JSON.stringify(s);}}
+  return s;}
+let _backupTimer=null;
+function scheduleBackup(){if(!store.cloudSync||store.testMode)return;
+  if(_backupTimer)clearTimeout(_backupTimer);_backupTimer=setTimeout(pushBackup,4000);}
+function pushBackup(){if(!store.cloudSync||store.testMode)return;
+  _lastBackupAt=Date.now();rawSend({type:'state',key:'store',data:buildBackup(),_ts:_lastBackupAt});
+  const e=document.getElementById('cloud-backup-state');if(e)e.innerHTML='<span class="ok">☁️ Backed up '+tOnly(_lastBackupAt)+'</span>';}
+function pullBackup(force){const url=store.sheetUrl||BAKED_SHEET_URL;if(!url)return;
+  const fn='__bkCb'+Date.now();
+  window[fn]=function(d){try{const st=d&&d.state;
+    if(st&&st.data&&typeof st.data==='object'){
+      if(force||isEmptyStore()){
+        const when=st._ts?new Date(st._ts).toLocaleString():'unknown time';
+        if(confirm('Restore your data from the cloud backup ('+when+')?\n\nThis replaces what is on THIS device. Your sync connection stays.')){
+          const o=Object.assign({},st.data);o.sheetUrl=store.sheetUrl;o.cloudSync=store.cloudSync;delete o.active;
+          localStorage.setItem(LS,JSON.stringify(o));alert('Restored ✓ — reloading.');location.reload();return;}
+      }
+    } else if(force){alert('No cloud backup found yet.');}
+  }catch(e){if(force)alert('Could not read the cloud backup.');}
+  delete window[fn];const s2=document.getElementById(fn);if(s2)s2.remove();};
+  const sc=document.createElement('script');sc.id=fn;
+  sc.src=url+'?action=state&key=store&callback='+fn+'&t='+Date.now();
+  sc.onerror=function(){delete window[fn];try{sc.remove();}catch(e){}if(force)alert('Could not reach the cloud backup.');};
+  document.body.appendChild(sc);}
+function restoreFromCloud(){if(!store.cloudSync){alert('Turn on ☁️ Cross-device sync first.');return;}pullBackup(true);}
+
 /* settings / editor */
 function renderSyncState(){const e=document.getElementById('sync-state2');if(e)e.innerHTML=store.lastSync?('<span class="ok">Last sync: '+tOnly(store.lastSync)+'</span>'+(store.outbox.length?(' · '+store.outbox.length+' queued (auto-resends)'):'')):'<span class="off">nothing sent yet</span>';}
 function saveSheetUrl(){store.sheetUrl=document.getElementById('sheet-url').value.trim();save();
@@ -762,7 +801,8 @@ function renderTestBtn(){const b=document.getElementById('test-toggle');if(b)b.t
 function toggleCarry(){store.autoCarry=!store.autoCarry;save();renderCarryBtn();}
 function renderCarryBtn(){const b=document.getElementById('carry-toggle');if(b)b.textContent=store.autoCarry?'On':'Off';}
 function toggleCloud(){if(!store.cloudSync){if(!confirm("Turn on cross-device sync?\n\nOnly do this AFTER you've pasted the script update and hit Deploy. Otherwise paused tasks won't sync and it may write junk rows."))return;}
-  store.cloudSync=!store.cloudSync;save();renderCloudBtn();startStatePoll();if(store.cloudSync){pushParked();pullParked(()=>renderActiveBanner());}}
+  store.cloudSync=!store.cloudSync;save();renderCloudBtn();startStatePoll();
+  if(store.cloudSync){pushParked();pullParked(()=>renderActiveBanner());if(isEmptyStore())pullBackup(false);else pushBackup();}}
 function renderCloudBtn(){const b=document.getElementById('cloud-toggle');if(b)b.textContent=store.cloudSync?'On':'Off';}
 /* cross-device sync of paused/parked tasks via the Apps Script "AppState" store (last-write-wins by _ts) */
 function pushParked(){if(!store.cloudSync||store.testMode)return;
@@ -945,7 +985,7 @@ function restoreActive(){if(!store.active)return;active=store.active;
   if(active.end){document.getElementById('sess-timer').textContent=clock(active.durMs||0);}
   else{tick=setInterval(updTimer,1000);updTimer();}}
 try{checkRollover();resendOutbox();save();setTestBar();restoreActive();}catch(e){console.warn('boot recover',e);active=null;try{delete store.active;save();}catch(_){}}
-if(!active)renderToday();fetchPlan();try{pullParked();startStatePoll();}catch(e){}
+if(!active)renderToday();fetchPlan();try{pullParked();startStatePoll();if(store.cloudSync&&isEmptyStore())pullBackup(false);}catch(e){}
 try{pullClaudeLogs(()=>{renderClaudeStrip();if(!document.getElementById('view-history').classList.contains('hidden'))renderHistory();});}catch(e){}
 </script>
 </body>
