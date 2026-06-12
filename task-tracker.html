@@ -391,8 +391,8 @@ function doneSessionToday(id){return store.sessions.find(s=>s.taskId===id&&s.end
 function isSkipped(id){return (store.skips[dayKey()]||[]).includes(id);}
 function toggleSkip(id){const k=dayKey();store.skips[k]=store.skips[k]||[];const i=store.skips[k].indexOf(id);
   if(i>=0)store.skips[k].splice(i,1);else store.skips[k].push(id);save();renderToday();}
-function streakCount(){const days=new Set(store.sessions.filter(s=>s.end).map(s=>new Date(s.start).toDateString()));
-  let n=0,d=new Date();while(days.has(d.toDateString())){n++;d.setDate(d.getDate()-1);}return n;}
+function streakCount(){const days=new Set(store.sessions.filter(s=>s.end).map(s=>dayKey(s.start)));
+  let n=0,d=new Date();while(days.has(dayKey(d))){n++;d.setDate(d.getDate()-1);}return n;}
 
 function renderToday(){
   document.getElementById('today-date').textContent=new Date().toLocaleDateString([],{weekday:'long',month:'long',day:'numeric'});
@@ -406,7 +406,7 @@ function renderToday(){
     let right;const running=store.bg.find(b=>b.taskId===t.id);
     if(dn)right=`<span class="status st-done">✓ ${mins(dn.durMs)}</span>`;
     else if(running)right=`<span class="status st-skip">🤖 running</span>`;
-    else if(pk)right=`<button class="btn sm" onclick="resumeParked(${pkIdx})">▶ Resume</button>`;
+    else if(pk)right=`<button class="btn sm" onclick="resumeParked('${pk.id}')">▶ Resume</button>`;
     else if(sk)right=`<span class="status st-skip">skipped</span>`;
     else right=`<button class="btn sm" onclick="startSession('${t.id}')">Start</button> <button class="btn sm ghost" onclick="delegate('${t.id}')" title="Delegate to Claude">🤖</button>`;
     const _pwt=t.wtype||(t.id==='workout'&&store.lastWtype?nextWtype(store.lastWtype):'');
@@ -465,7 +465,7 @@ function renderToday(){
 
 /* session */
 function startSession(id){const t=store.tasks.find(x=>x.id===id);if(!t)return;
-  const _pIdx=(store.parked||[]).findIndex(p=>p.taskId===id);if(_pIdx>=0){resumeParked(_pIdx);return;}
+  const _pIdx=(store.parked||[]).findIndex(p=>p.taskId===id);if(_pIdx>=0){resumeParked(store.parked[_pIdx].id);return;}
   if(active&&!active.end){if(active.taskId===id){go('session');renderSession();if(!tick)tick=setInterval(updTimer,1000);updTimer();return;}
     if(!confirm('“'+active.taskName+'” is still running. Pause it and start “'+t.name+'”? You can resume it later from Today.'))return;parkActive();}
   active={id:'s'+Date.now(),taskId:id,taskName:t.name,owner:'Me',kind:t.kind||'main',description:t.description||'',title:'',start:nowISO(),end:null,pausedMs:0,pauseStart:null,micro:t.micro.map(m=>({name:m,done:false,at:null,note:null})),output:'',reflection:'',ideas:''};
@@ -552,19 +552,19 @@ function renderPauseBtn(){const b=document.getElementById('pause-btn');if(!b)ret
 function parkActive(){if(!active)return;if(!active.pauseStart)active.pauseStart=nowISO();active.parkedAt=nowISO();store.parked.push(active);active=null;if(tick){clearInterval(tick);tick=null;}store.parkedTs=Date.now();persistActive();pushParked();}
 /* pause for later = stash this half-done task (steps + time kept) and go back to Today; resume any day */
 function pauseForLater(){if(!active||active.end)return;parkActive();blip();go('today');renderToday();}
-function resumeParked(idx){const p=store.parked[idx];if(!p)return;
-  if(active&&!active.end){if(!confirm('“'+active.taskName+'” is running. Park it and resume “'+p.taskName+'”?'))return;parkActive();}
-  store.parked.splice(idx,1);active=p;store.parkedTs=Date.now();pushParked();
+function resumeParked(id){const p0=(store.parked||[]).find(p=>p.id===id);if(!p0)return;
+  if(active&&!active.end){if(!confirm('“'+active.taskName+'” is running. Park it and resume “'+p0.taskName+'”?'))return;parkActive();}
+  const idx=(store.parked||[]).findIndex(p=>p.id===id);if(idx<0)return;active=store.parked[idx];store.parked.splice(idx,1);store.parkedTs=Date.now();pushParked();
   if(active.pauseStart){active.pausedMs=(active.pausedMs||0)+(Date.now()-new Date(active.pauseStart));active.pauseStart=null;}
   persistActive();go('session');renderSession();if(!tick)tick=setInterval(updTimer,1000);updTimer();}
-function discardParked(idx){const p=store.parked[idx];if(!p)return;if(!confirm('Discard parked “'+p.taskName+'”? Its time is lost.'))return;store.parked.splice(idx,1);store.parkedTs=Date.now();save();pushParked();renderToday();}
+function discardParked(id){const idx=(store.parked||[]).findIndex(p=>p.id===id);if(idx<0)return;const p=store.parked[idx];if(!confirm('Discard parked “'+p.taskName+'”? Its time is lost.'))return;store.parked.splice(idx,1);store.parkedTs=Date.now();save();pushParked();renderToday();}
 function renderActiveBanner(){const ab=document.getElementById('active-banner');if(!ab)return;let h='';
   if(active&&!active.end){const em=(store.tasks.find(x=>x.id===active.taskId)||{}).emoji||'⏱';const paused=!!active.pauseStart;
     h+=`<div class="card" style="border:1px solid var(--accent)"><div class="row"><div class="tleft"><span class="emoji">${em}</span><div style="min-width:0"><div class="tname">${esc(active.taskName)}${paused?' <span class="wbadge">paused</span>':''}</div><div class="tsub">▶ in progress · <span class="timer" id="active-banner-timer">0:00</span></div></div></div><button class="btn sm" onclick="go('session');renderSession()">Resume</button></div></div>`;}
   (store.parked||[]).forEach((p,i)=>{const em=(store.tasks.find(x=>x.id===p.taskId)||{}).emoji||'⏸';
     const _dc=(p.micro||[]).filter(m=>m.done).length,_tc=(p.micro||[]).length;
     const _when=p.parkedAt&&dayKey(p.parkedAt)!==dayKey()?' · paused '+dayLabelOf(dayKey(p.parkedAt)):' · resume anytime';
-    h+=`<div class="card"><div class="row"><div class="tleft"><span class="emoji">${em}</span><div style="min-width:0"><div class="tname">${esc(p.taskName)} <span class="wbadge">paused</span></div><div class="tsub">${_dc}/${_tc} steps done${_when}</div></div></div><div class="tright"><button class="btn sm" onclick="resumeParked(${i})">▶ Resume</button> <button class="x" onclick="discardParked(${i})">✕</button></div></div></div>`;});
+    h+=`<div class="card"><div class="row"><div class="tleft"><span class="emoji">${em}</span><div style="min-width:0"><div class="tname">${esc(p.taskName)} <span class="wbadge">paused</span></div><div class="tsub">${_dc}/${_tc} steps done${_when}</div></div></div><div class="tright"><button class="btn sm" onclick="resumeParked('${p.id}')">▶ Resume</button> <button class="x" onclick="discardParked('${p.id}')">✕</button></div></div></div>`;});
   ab.className=h?'':'hidden';ab.innerHTML=h;
   if(active&&!active.end){if(!tick)tick=setInterval(updTimer,1000);updTimer();}}
 
@@ -641,7 +641,8 @@ function isGold(s){return s.colorId==='5'||(s.owner||'Me')==='Claude'||s.kind===
 let _claudePullAt=0;
 function pullClaudeLogs(cb){
   const url=store.sheetUrl||BAKED_SHEET_URL;if(!url)return;
-  const fn='__claudeCb'+Date.now();
+  const fn='__claudeCb'+Date.now();let done=false;
+  function finish(){if(done)return;done=true;delete window[fn];const s2=document.getElementById(fn);if(s2)s2.remove();if(cb)cb();}
   window[fn]=function(data){
     try{
       const rows=(data&&data.sessions)||[];
@@ -653,13 +654,13 @@ function pullClaudeLogs(cb){
         micro:[],output:r.output||'',reflection:r.reflection||'',_remote:true,colorId:r.colorId||'5'}));
       store.lastClaudePull=Date.now();save();
     }catch(e){}
-    if(cb)cb();
-    delete window[fn];const sc=document.getElementById(fn);if(sc)sc.remove();
+    finish();
   };
   const sc=document.createElement('script');sc.id=fn;
   sc.src=url+'?action=recent&days=8&callback='+fn+'&t='+Date.now();
-  sc.onerror=function(){if(cb)cb();delete window[fn];sc.remove();};
+  sc.onerror=finish;
   document.body.appendChild(sc);_claudePullAt=Date.now();
+  setTimeout(finish,12000);/* clean up the callback + node if the request neither loads nor errors */
 }
 /* merged view: my local sessions + Claude's remote ones (local wins on sid) */
 function allSessionsOn(dk){
@@ -771,7 +772,8 @@ function pushBackup(){if(!store.cloudSync||store.testMode)return;
   _lastBackupAt=Date.now();rawSend({type:'state',key:'store',data:buildBackup(),_ts:_lastBackupAt});
   const e=document.getElementById('cloud-backup-state');if(e)e.innerHTML='<span class="ok">☁️ Backed up '+tOnly(_lastBackupAt)+'</span>';}
 function pullBackup(force){const url=store.sheetUrl||BAKED_SHEET_URL;if(!url)return;
-  const fn='__bkCb'+Date.now();
+  const fn='__bkCb'+Date.now();let done=false;
+  function clean(){if(done)return;done=true;delete window[fn];const s3=document.getElementById(fn);if(s3)s3.remove();}
   window[fn]=function(d){try{const st=d&&d.state;
     if(st&&st.data&&typeof st.data==='object'){
       if(force||isEmptyStore()){
@@ -782,11 +784,11 @@ function pullBackup(force){const url=store.sheetUrl||BAKED_SHEET_URL;if(!url)ret
       }
     } else if(force){alert('No cloud backup found yet.');}
   }catch(e){if(force)alert('Could not read the cloud backup.');}
-  delete window[fn];const s2=document.getElementById(fn);if(s2)s2.remove();};
+  clean();};
   const sc=document.createElement('script');sc.id=fn;
   sc.src=url+'?action=state&key=store&callback='+fn+'&t='+Date.now();
-  sc.onerror=function(){delete window[fn];try{sc.remove();}catch(e){}if(force)alert('Could not reach the cloud backup.');};
-  document.body.appendChild(sc);}
+  sc.onerror=function(){clean();if(force)alert('Could not reach the cloud backup.');};
+  document.body.appendChild(sc);setTimeout(clean,12000);}
 function restoreFromCloud(){if(!store.cloudSync){alert('Turn on ☁️ Cross-device sync first.');return;}pullBackup(true);}
 
 /* settings / editor */
@@ -810,16 +812,17 @@ function pushParked(){if(!store.cloudSync||store.testMode)return;
 let _statePullAt=0;
 function pullParked(cb){if(!store.cloudSync){if(cb)cb();return;}
   const url=store.sheetUrl||BAKED_SHEET_URL;if(!url){if(cb)cb();return;}
-  const fn='__stateCb'+Date.now();
+  const fn='__stateCb'+Date.now();let done=false;
+  function finish(){if(done)return;done=true;delete window[fn];const s2=document.getElementById(fn);if(s2)s2.remove();if(cb)cb();}
   window[fn]=function(d){try{const st=d&&d.state;
     if(st&&Array.isArray(st.data)&&(st._ts||0)>(store.parkedTs||0)){store.parked=st.data;store.parkedTs=st._ts;save();
       if(!document.getElementById('view-today').classList.contains('hidden'))renderToday();else renderActiveBanner();}
   }catch(e){}
-  if(cb)cb();delete window[fn];const s2=document.getElementById(fn);if(s2)s2.remove();};
+  finish();};
   const sc=document.createElement('script');sc.id=fn;
   sc.src=url+'?action=state&key=parked&callback='+fn+'&t='+Date.now();
-  sc.onerror=function(){if(cb)cb();delete window[fn];try{sc.remove();}catch(e){}};
-  document.body.appendChild(sc);_statePullAt=Date.now();}
+  sc.onerror=finish;
+  document.body.appendChild(sc);_statePullAt=Date.now();setTimeout(finish,12000);}
 /* poll the other device every 15s while the app is open + sync is on (skips when backgrounded to save quota) */
 let _statePoll=null;
 function startStatePoll(){if(_statePoll){clearInterval(_statePoll);_statePoll=null;}
