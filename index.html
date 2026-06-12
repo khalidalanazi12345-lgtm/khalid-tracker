@@ -262,6 +262,8 @@
     <button class="tinybtn" id="test-toggle" onclick="toggleTest()"></button></div></div>
   <div class="card"><div class="row"><span class="hint">↪ Auto carry-over — undone tasks roll into tomorrow automatically at midnight</span>
     <button class="tinybtn" id="carry-toggle" onclick="toggleCarry()"></button></div></div>
+  <div class="card"><div class="row"><span class="hint">☁️ Cross-device sync — paused/parked tasks sync phone↔laptop via your Sheet. <b>Turn on only AFTER deploying the script update</b>, or it can create junk rows.</span>
+    <button class="tinybtn" id="cloud-toggle" onclick="toggleCloud()"></button></div></div>
 </div>
 
 <!-- NOTES FOR THE DAY -->
@@ -351,7 +353,7 @@ function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'
 function addDayKey(dk,n){const d=new Date(dk+'T00:00');d.setDate(d.getDate()+n);return dayKey(d);}
 function dayLabelOf(dk){const t=dayKey();if(dk===t)return'Today';if(dk===addDayKey(t,-1))return'Yesterday';if(dk===addDayKey(t,1))return'Tomorrow';return new Date(dk+'T00:00').toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'});}
 function sessionsOn(dk){return store.sessions.filter(s=>s.end&&dayKey(s.start)===dk);}
-store.bg=store.bg||[]; store.remoteSessions=store.remoteSessions||[]; store.carryover=store.carryover||[]; if(store.autoCarry===undefined)store.autoCarry=false; store.lastDay=store.lastDay||dayKey(); store.outbox=store.outbox||[]; store.lastSync=store.lastSync||0; store.notes=store.notes||{}; if(store.peekOpen===undefined)store.peekOpen=false; store.parked=store.parked||[];
+store.bg=store.bg||[]; store.remoteSessions=store.remoteSessions||[]; store.carryover=store.carryover||[]; if(store.autoCarry===undefined)store.autoCarry=false; store.lastDay=store.lastDay||dayKey(); store.outbox=store.outbox||[]; store.lastSync=store.lastSync||0; store.notes=store.notes||{}; if(store.peekOpen===undefined)store.peekOpen=false; store.parked=store.parked||[]; store.parkedTs=store.parkedTs||0; if(store.cloudSync===undefined)store.cloudSync=false;
 let bgTick=null;
 function carryOver(silent){const undone=orderedTasks().filter(t=>!doneSessionToday(t.id)&&!isSkipped(t.id));let added=0;
   undone.forEach(t=>{if(!store.carryover.some(c=>c.name===t.name)){store.carryover.push({id:t.id,name:t.name,emoji:t.emoji,description:t.description||'',micro:(t.micro||[]).slice()});added++;}});
@@ -527,7 +529,8 @@ function applyEndEdit(t){if(!active)return;
 /* iOS purges/throttles backgrounded web apps — force-refresh elapsed the moment we return, and revive a dead interval */
 function refreshOnReturn(){if(checkRollover())renderToday();/* app reopened across midnight → roll the day + rebuild Today */
   if(active&&!active._editing&&!active.end){if(!tick)tick=setInterval(updTimer,1000);updTimer();}
-  if(store.bg&&store.bg.length){if(!bgTick)bgTick=setInterval(updBg,1000);updBg();}}
+  if(store.bg&&store.bg.length){if(!bgTick)bgTick=setInterval(updBg,1000);updBg();}
+  if(store.cloudSync&&Date.now()-_statePullAt>8000)pullParked();/* pick up a pause made on another device */}
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshOnReturn();});
 window.addEventListener('pageshow',refreshOnReturn);
 window.addEventListener('focus',refreshOnReturn);
@@ -544,15 +547,15 @@ function renderPauseBtn(){const b=document.getElementById('pause-btn');if(!b)ret
   const tm=document.getElementById('sess-timer');if(tm)tm.style.opacity=paused?'.45':'1';
   const en=document.getElementById('sess-end');if(en&&active&&!active.end)en.textContent=paused?'paused':'running';}
 /* park = stash the current running session (paused) so you can run another, then resume it later */
-function parkActive(){if(!active)return;if(!active.pauseStart)active.pauseStart=nowISO();active.parkedAt=nowISO();store.parked.push(active);active=null;if(tick){clearInterval(tick);tick=null;}persistActive();}
+function parkActive(){if(!active)return;if(!active.pauseStart)active.pauseStart=nowISO();active.parkedAt=nowISO();store.parked.push(active);active=null;if(tick){clearInterval(tick);tick=null;}store.parkedTs=Date.now();persistActive();pushParked();}
 /* pause for later = stash this half-done task (steps + time kept) and go back to Today; resume any day */
 function pauseForLater(){if(!active||active.end)return;parkActive();blip();go('today');renderToday();}
 function resumeParked(idx){const p=store.parked[idx];if(!p)return;
   if(active&&!active.end){if(!confirm('“'+active.taskName+'” is running. Park it and resume “'+p.taskName+'”?'))return;parkActive();}
-  store.parked.splice(idx,1);active=p;
+  store.parked.splice(idx,1);active=p;store.parkedTs=Date.now();pushParked();
   if(active.pauseStart){active.pausedMs=(active.pausedMs||0)+(Date.now()-new Date(active.pauseStart));active.pauseStart=null;}
   persistActive();go('session');renderSession();if(!tick)tick=setInterval(updTimer,1000);updTimer();}
-function discardParked(idx){const p=store.parked[idx];if(!p)return;if(!confirm('Discard parked “'+p.taskName+'”? Its time is lost.'))return;store.parked.splice(idx,1);save();renderToday();}
+function discardParked(idx){const p=store.parked[idx];if(!p)return;if(!confirm('Discard parked “'+p.taskName+'”? Its time is lost.'))return;store.parked.splice(idx,1);store.parkedTs=Date.now();save();pushParked();renderToday();}
 function renderActiveBanner(){const ab=document.getElementById('active-banner');if(!ab)return;let h='';
   if(active&&!active.end){const em=(store.tasks.find(x=>x.id===active.taskId)||{}).emoji||'⏱';const paused=!!active.pauseStart;
     h+=`<div class="card" style="border:1px solid var(--accent)"><div class="row"><div class="tleft"><span class="emoji">${em}</span><div style="min-width:0"><div class="tname">${esc(active.taskName)}${paused?' <span class="wbadge">paused</span>':''}</div><div class="tsub">▶ in progress · <span class="timer" id="active-banner-timer">0:00</span></div></div></div><button class="btn sm" onclick="go('session');renderSession()">Resume</button></div></div>`;}
@@ -758,6 +761,25 @@ function toggleTest(){store.testMode=!store.testMode;save();setTestBar();renderT
 function renderTestBtn(){const b=document.getElementById('test-toggle');if(b)b.textContent=store.testMode?'On':'Off';}
 function toggleCarry(){store.autoCarry=!store.autoCarry;save();renderCarryBtn();}
 function renderCarryBtn(){const b=document.getElementById('carry-toggle');if(b)b.textContent=store.autoCarry?'On':'Off';}
+function toggleCloud(){if(!store.cloudSync){if(!confirm("Turn on cross-device sync?\n\nOnly do this AFTER you've pasted the script update and hit Deploy. Otherwise paused tasks won't sync and it may write junk rows."))return;}
+  store.cloudSync=!store.cloudSync;save();renderCloudBtn();if(store.cloudSync){pushParked();pullParked(()=>renderActiveBanner());}}
+function renderCloudBtn(){const b=document.getElementById('cloud-toggle');if(b)b.textContent=store.cloudSync?'On':'Off';}
+/* cross-device sync of paused/parked tasks via the Apps Script "AppState" store (last-write-wins by _ts) */
+function pushParked(){if(!store.cloudSync||store.testMode)return;
+  rawSend({type:'state',key:'parked',data:store.parked||[],_ts:store.parkedTs||Date.now()});}
+let _statePullAt=0;
+function pullParked(cb){if(!store.cloudSync){if(cb)cb();return;}
+  const url=store.sheetUrl||BAKED_SHEET_URL;if(!url){if(cb)cb();return;}
+  const fn='__stateCb'+Date.now();
+  window[fn]=function(d){try{const st=d&&d.state;
+    if(st&&Array.isArray(st.data)&&(st._ts||0)>(store.parkedTs||0)){store.parked=st.data;store.parkedTs=st._ts;save();
+      if(!document.getElementById('view-today').classList.contains('hidden'))renderToday();else renderActiveBanner();}
+  }catch(e){}
+  if(cb)cb();delete window[fn];const s2=document.getElementById(fn);if(s2)s2.remove();};
+  const sc=document.createElement('script');sc.id=fn;
+  sc.src=url+'?action=state&key=parked&callback='+fn+'&t='+Date.now();
+  sc.onerror=function(){if(cb)cb();delete window[fn];try{sc.remove();}catch(e){}};
+  document.body.appendChild(sc);_statePullAt=Date.now();}
 function slug(s){return s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'task';}
 function syncOrder(){store.order=orderedTasks().map(t=>t.id);}
 function renderTaskEditor(){const el=document.getElementById('task-editor');el.innerHTML='';const tasks=orderedTasks();
@@ -907,8 +929,9 @@ function closePreview(){document.getElementById('preview-modal').classList.add('
 function go(v){['today','session','summary','review','history','settings','notes'].forEach(x=>document.getElementById('view-'+x).classList.toggle('hidden',x!==v));
   ['today','notes','review','history','settings'].forEach(x=>document.getElementById('nav-'+x).classList.toggle('active',x===v));
   if(v==='today'||v==='history'){if(Date.now()-_claudePullAt>20000)pullClaudeLogs(()=>{if(v==='today')renderClaudeStrip();else renderHistory();});}
+  if(v==='today'&&store.cloudSync&&Date.now()-_statePullAt>8000)pullParked();
   if(v==='today')renderToday(); if(v==='review')renderReview(); if(v==='history')renderHistory(); if(v==='notes')renderNotes();
-  if(v==='settings'){document.getElementById('sheet-url').value=store.sheetUrl||'';renderTaskEditor();renderFxBtn();renderTestBtn();renderCarryBtn();renderSyncState();}
+  if(v==='settings'){document.getElementById('sheet-url').value=store.sheetUrl||'';renderTaskEditor();renderFxBtn();renderTestBtn();renderCarryBtn();renderCloudBtn();renderSyncState();}
   window.scrollTo(0,0);}
 /* bring a live session back if iOS reloaded the app while it was backgrounded */
 function restoreActive(){if(!store.active)return;active=store.active;
@@ -918,7 +941,7 @@ function restoreActive(){if(!store.active)return;active=store.active;
   if(active.end){document.getElementById('sess-timer').textContent=clock(active.durMs||0);}
   else{tick=setInterval(updTimer,1000);updTimer();}}
 try{checkRollover();resendOutbox();save();setTestBar();restoreActive();}catch(e){console.warn('boot recover',e);active=null;try{delete store.active;save();}catch(_){}}
-if(!active)renderToday();fetchPlan();
+if(!active)renderToday();fetchPlan();try{pullParked();}catch(e){}
 try{pullClaudeLogs(()=>{renderClaudeStrip();if(!document.getElementById('view-history').classList.contains('hidden'))renderHistory();});}catch(e){}
 </script>
 </body>
