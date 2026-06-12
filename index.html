@@ -362,11 +362,11 @@ function carryOver(silent){const undone=orderedTasks().filter(t=>!doneSessionTod
   save();if(!silent){try{alert(added?(added+" undone task(s) queued for tomorrow ✓"):"Nothing undone to carry over.");}catch(e){}}return added;}
 function checkRollover(){if(store.lastDay&&store.lastDay!==dayKey()){if(store.autoCarry)carryOver(true);store.lastDay=dayKey();save();return true;}return false;}
 function delegate(id){const t=store.tasks.find(x=>x.id===id);if(!t)return;
-  store.bg.push({id:'b'+Date.now(),taskId:id,taskName:t.name,emoji:t.emoji,owner:'Claude',kind:t.kind||'main',start:nowISO(),micro:t.micro.map(m=>({name:m,done:true,at:nowISO()}))});
+  store.bg.push({id:'b'+Date.now(),taskId:id,taskName:t.name,emoji:t.emoji,owner:'Claude',kind:t.kind||'main',start:nowISO(),_test:store.testMode,micro:t.micro.map(m=>({name:m,done:true,at:nowISO()}))});
   save();blip();renderToday();}
 function finishBg(bid){const i=store.bg.findIndex(b=>b.id===bid);if(i<0)return;const b=store.bg[i];
   b.end=nowISO();b.durMs=new Date(b.end)-new Date(b.start);
-  if(store.testMode){store.bg.splice(i,1);save();renderToday();try{alert("🧪 Test mode — delegated task NOT logged.");}catch(e){}return;}
+  if(store.testMode||b._test){store.bg.splice(i,1);save();renderToday();try{alert("🧪 Test session — delegated task NOT logged.");}catch(e){}return;}
   const sObj={id:b.id,taskId:b.taskId,taskName:b.taskName,owner:'Claude',kind:b.kind||'main',title:'🤖 '+b.taskName,start:b.start,end:b.end,durMs:b.durMs,micro:b.micro,output:'',reflection:'',steps:[],_slow:null};
   store.sessions.push(sObj);store.bg.splice(i,1);save();pushToSheet(sObj);renderToday();
   try{alert("🤖 Delegated task logged ✓");}catch(e){}}
@@ -404,7 +404,7 @@ function renderToday(){
     const sk=isSkipped(t.id),dn=doneSessionToday(t.id);
     const pkIdx=(store.parked||[]).findIndex(p=>p.taskId===t.id),pk=pkIdx>=0?store.parked[pkIdx]:null;
     let right;const running=store.bg.find(b=>b.taskId===t.id);
-    if(dn)right=`<span class="status st-done">✓ ${mins(dn.durMs)}</span>`;
+    if(dn)right=`<span class="status st-done" onclick="undoDone('${t.id}')" style="cursor:pointer" title="tap to undo — mark not done">✓ ${mins(dn.durMs)}</span>`;
     else if(running)right=`<span class="status st-skip">🤖 running</span>`;
     else if(pk)right=`<button class="btn sm" onclick="resumeParked('${pk.id}')">▶ Resume</button>`;
     else if(sk)right=`<span class="status st-skip">skipped</span>`;
@@ -417,7 +417,7 @@ function renderToday(){
     d.innerHTML=`<div class="row"><div class="tleft"><span class="emoji">${t.emoji||'•'}</span>
       <div style="min-width:0"><div class="tname">${esc(t.name)}${wbadge}${ptsbadge}</div>
       <div class="tsub">${t.micro.length} steps${dn?' · done '+tOnly(dn.end):''}${pk?' · ⏸ '+pk.micro.filter(m=>m.done).length+'/'+pk.micro.length+' done':''} · tap to preview</div></div></div><div class="tright" onclick="event.stopPropagation()">${right}</div></div>
-      <div class="cardfoot"><button class="skiplink" onclick="event.stopPropagation();toggleSkip('${t.id}')">${sk?'un-skip':'skip today'}</button>
+      <div class="cardfoot">${dn?`<button class="skiplink" style="color:var(--accent2)" onclick="event.stopPropagation();undoDone('${t.id}')">↩ mark not done</button>`:''}<button class="skiplink" onclick="event.stopPropagation();toggleSkip('${t.id}')">${sk?'un-skip':'skip today'}</button>
       <button class="skiplink" onclick="event.stopPropagation();toggleKind('${t.id}')">${isBonus(t)?'→ main':'→ bonus'}</button>
       <button class="skiplink" onclick="event.stopPropagation();removeTaskToday('${t.id}')">remove</button></div>`;
     return {node:d,sk,dn};
@@ -468,7 +468,7 @@ function startSession(id){const t=store.tasks.find(x=>x.id===id);if(!t)return;
   const _pIdx=(store.parked||[]).findIndex(p=>p.taskId===id);if(_pIdx>=0){resumeParked(store.parked[_pIdx].id);return;}
   if(active&&!active.end){if(active.taskId===id){go('session');renderSession();if(!tick)tick=setInterval(updTimer,1000);updTimer();return;}
     if(!confirm('“'+active.taskName+'” is still running. Pause it and start “'+t.name+'”? You can resume it later from Today.'))return;parkActive();}
-  active={id:'s'+Date.now(),taskId:id,taskName:t.name,owner:'Me',kind:t.kind||'main',description:t.description||'',title:'',start:nowISO(),end:null,pausedMs:0,pauseStart:null,micro:t.micro.map(m=>({name:m,done:false,at:null,note:null})),output:'',reflection:'',ideas:''};
+  active={id:'s'+Date.now(),taskId:id,taskName:t.name,owner:'Me',kind:t.kind||'main',description:t.description||'',title:'',start:nowISO(),end:null,pausedMs:0,pauseStart:null,_test:store.testMode,micro:t.micro.map(m=>({name:m,done:false,at:null,note:null})),output:'',reflection:'',ideas:''};
   try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();}catch(e){}
   persistActive();go('session');renderSession();tick=setInterval(updTimer,1000);updTimer();}
 function setRing(el,done,total){const pct=total?Math.round(done/total*100):0;
@@ -620,7 +620,7 @@ function saveSummary(){active.output=document.getElementById('sum-output').value
       slowest_step:clean._slow?clean._slow.name:'',slowest_min:clean._slow?Math.round(clean._slow.durMs/60000):'',reflection:clean.reflection||''});}
     active=null;persistActive();try{alert(store.testMode?"🧪 Test mode — edit saved locally, NOT synced.":"Edited ✓ — calendar + sheet updating.");}catch(e){}go('history');return;
   }
-  if(store.testMode){try{alert("🧪 Test mode — session NOT saved, NOT logged to calendar or sheet.");}catch(e){}active=null;persistActive();go('today');return;}
+  if(store.testMode||active._test){try{alert("🧪 Test session — NOT saved, NOT logged to calendar or sheet.");}catch(e){}active=null;persistActive();go('today');return;}
   delete active._finished;store.sessions.push(active);pushToSheet(active);active=null;persistActive();go('today');}
 
 /* sheet + calendar */
@@ -731,6 +731,14 @@ function editSession(sid){const s=store.sessions.find(x=>x.id===sid);if(!s||!s.e
   persistActive();go('session');renderSession();
   document.getElementById('sess-timer').textContent=clock(active.durMs||0);
 }
+/* undo an accidental "done" — removes today's logged session for a task (+ its calendar/sheet entry) so it's start-able again */
+function undoDone(id){const todays=store.sessions.filter(x=>x.taskId===id&&x.end&&dayKey(x.start)===dayKey());
+  if(!todays.length)return;const s=todays[todays.length-1];const nm=(store.tasks.find(t=>t.id===id)||{}).name||'this task';
+  const synced=!store.testMode&&!s._test;
+  if(!confirm('Mark “'+nm+'” as not done?\n\nRemoves today’s logged session'+(synced?' (and its calendar + sheet entry).':'.')))return;
+  const i=store.sessions.findIndex(x=>x.id===s.id);if(i>=0)store.sessions.splice(i,1);save();
+  if(synced)post({type:'delete',sid:s.id,origStartISO:s.start});
+  blip();renderToday();}
 function deleteSession(sid){const i=store.sessions.findIndex(x=>x.id===sid);if(i<0)return;const s=store.sessions[i];
   if(!confirm('Delete this session? Removes it from the calendar + sheet too.'))return;
   const o=s.start;store.sessions.splice(i,1);save();
