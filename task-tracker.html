@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -122,6 +123,7 @@
 <div id="view-today">
   <div class="h-row"><div><h1>Today</h1><div class="date" id="today-date"></div></div>
     <div class="streak">🔥 <span id="streak">0</span></div></div>
+  <div id="update-banner" class="hidden"></div>
   <div id="plan-banner" class="hidden"></div>
   <div id="active-banner" class="hidden"></div>
   <div class="card" id="day-peek"></div>
@@ -318,6 +320,7 @@ const DEFAULT_TASKS=[
 ];
 const BAKED_SHEET_URL="https://script.google.com/macros/s/AKfycbxfqJIjFZaBLJE4jjV6jJXELsLfvxFYq96l_V4ffCa3woLiBNYnb6qd0GxBu8b9FxjF/exec";
 
+const BUILD="2026-06-12.11";/* bump this + version.json on every deploy so the app can detect updates */
 const LS="khalid_prod_tracker_v4";
 let store=JSON.parse(localStorage.getItem(LS)||'null')||{};
 store.sessions=store.sessions||[]; store.sheetUrl=store.sheetUrl||"";
@@ -547,7 +550,19 @@ function applyEndEdit(t){if(!active)return;
 function refreshOnReturn(){if(checkRollover())renderToday();/* app reopened across midnight → roll the day + rebuild Today */
   if(active&&!active._editing&&!active.end){if(!tick)tick=setInterval(updTimer,1000);updTimer();}
   if(store.bg&&store.bg.length){if(!bgTick)bgTick=setInterval(updBg,1000);updBg();}
-  if(store.cloudSync&&Date.now()-_statePullAt>8000)pullParked();/* pick up a pause made on another device */}
+  if(store.cloudSync&&Date.now()-_statePullAt>8000)pullParked();/* pick up a pause made on another device */
+  checkVersion();}
+/* in-app update detector: a cache-busted fetch of version.json; if the deployed build differs
+   from this loaded build, show a one-tap update banner (beats fighting iOS home-screen caching) */
+let _verAt=0;
+function checkVersion(){if(Date.now()-_verAt<20000)return;_verAt=Date.now();
+  fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.json():null).then(v=>{
+    const b=document.getElementById('update-banner');if(!b)return;
+    if(v&&v.build&&v.build!==BUILD){b.className='card';b.style.cssText='border:1px solid var(--amber);background:linear-gradient(180deg,#241d10,#0e120c)';
+      b.innerHTML=`<div class="row"><div style="min-width:0"><div style="font-weight:700;color:var(--amber)">↻ New version available</div><div class="tsub">You're on ${BUILD} · latest ${v.build}</div></div><button class="btn sm" onclick="doUpdate()">Update</button></div>`;}
+    else{b.className='hidden';b.innerHTML='';}
+  }).catch(()=>{});}
+function doUpdate(){location.href=location.pathname+'?v='+Date.now();}/* force a fresh HTML fetch past the cache */
 /* drag-to-reorder Today/bonus cards via the ⠿ grip — pointer events, works on touch + mouse */
 let _dnd=null;
 function gripDown(e){const grip=e.target&&e.target.closest?e.target.closest('[data-grip]'):null;if(!grip)return;
@@ -855,7 +870,7 @@ function renderSyncState(){const e=document.getElementById('sync-state2');if(!e)
   const recent=store.sessions.filter(s=>s.end&&(Date.now()-new Date(s.start))<8*864e5);
   const ok=recent.filter(s=>(store.syncedSids||[]).indexOf(String(s.id))>=0).length;
   const vTxt=recent.length?(' · <span class="'+(ok===recent.length?'ok':'off')+'">✓ '+ok+'/'+recent.length+' recent verified in Sheet</span>'):'';
-  e.innerHTML=(store.lastSync?('<span class="ok">Last sync: '+tOnly(store.lastSync)+'</span>'+(store.outbox.length?(' · '+store.outbox.length+' queued (auto-resends)'):'')):'<span class="off">nothing sent yet</span>')+vTxt;}
+  e.innerHTML=(store.lastSync?('<span class="ok">Last sync: '+tOnly(store.lastSync)+'</span>'+(store.outbox.length?(' · '+store.outbox.length+' queued (auto-resends)'):'')):'<span class="off">nothing sent yet</span>')+vTxt+'<br><span class="off">Build '+BUILD+'</span>';}
 function saveSheetUrl(){store.sheetUrl=document.getElementById('sheet-url').value.trim();save();
   document.getElementById('url-state').innerHTML=store.sheetUrl?'<span class="ok">✓ Custom endpoint saved</span>':'<span class="off">using built-in</span>';}
 function toggleFx(){store.fx=!store.fx;save();renderFxBtn();if(store.fx)blip();}
@@ -1062,7 +1077,7 @@ function restoreActive(){if(!store.active)return;active=store.active;
   if(active.end){document.getElementById('sess-timer').textContent=clock(active.durMs||0);}
   else{tick=setInterval(updTimer,1000);updTimer();}}
 try{checkRollover();resendOutbox();save();setTestBar();restoreActive();}catch(e){console.warn('boot recover',e);active=null;try{delete store.active;save();}catch(_){}}
-if(!active)renderToday();fetchPlan();try{pullParked();startStatePoll();}catch(e){}
+if(!active)renderToday();fetchPlan();try{pullParked();startStatePoll();checkVersion();}catch(e){}
 try{pullClaudeLogs(()=>{renderClaudeStrip();if(!document.getElementById('view-history').classList.contains('hidden'))renderHistory();});}catch(e){}
 </script>
 </body>
