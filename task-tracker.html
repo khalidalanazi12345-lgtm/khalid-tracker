@@ -94,6 +94,9 @@
   .pv-step{display:flex;gap:11px;align-items:flex-start;padding:11px 2px;border-top:1px solid var(--line);font-size:14px;line-height:1.4}
   .pv-step:first-child{border-top:none}
   .pv-num{flex:0 0 23px;height:23px;border-radius:7px;background:var(--card2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--dim);margin-top:1px;font-weight:700}
+  .grip{cursor:grab;color:var(--dim);font-size:17px;line-height:1;padding:4px 9px 4px 0;margin:-4px 0;touch-action:none;-webkit-user-select:none;user-select:none;flex:0 0 auto;align-self:center}
+  .grip:active{cursor:grabbing}
+  .card.dragging{opacity:.9;box-shadow:0 14px 34px rgba(0,0,0,.6);position:relative;z-index:60;border-color:var(--accent)}
   /* ── Desktop / laptop: use the wider screen instead of a skinny phone strip.
      Phones (<768px) are unchanged. Lists flow into 2–3 columns; nav widens to match. */
   @media (min-width:768px){
@@ -357,6 +360,12 @@ function dayLabelOf(dk){const t=dayKey();if(dk===t)return'Today';if(dk===addDayK
 function sessionsOn(dk){return store.sessions.filter(s=>s.end&&dayKey(s.start)===dk);}
 store.bg=store.bg||[]; store.remoteSessions=store.remoteSessions||[]; store.carryover=store.carryover||[]; if(store.autoCarry===undefined)store.autoCarry=false; store.lastDay=store.lastDay||dayKey(); store.outbox=store.outbox||[]; store.lastSync=store.lastSync||0; store.notes=store.notes||{}; if(store.peekOpen===undefined)store.peekOpen=false; store.parked=store.parked||[]; store.parkedTs=store.parkedTs||0; if(store.cloudSync===undefined)store.cloudSync=false;
 let bgTick=null;
+/* move ONE task to tomorrow (queue it for the next day + take it off today) */
+function moveToTomorrow(id){const t=store.tasks.find(x=>x.id===id);if(!t)return;
+  if(!confirm('Move “'+t.name+'” to tomorrow?'))return;
+  if(!store.carryover.some(c=>c.id===t.id))store.carryover.push({id:t.id,name:t.name,emoji:t.emoji,description:t.description||'',micro:(t.micro||[]).slice(),kind:t.kind,pts:t.pts,wtype:t.wtype});
+  store.tasks=store.tasks.filter(x=>x.id!==id);store.order=store.order.filter(x=>x!==id);
+  save();blip();renderToday();}
 function carryOver(silent){const undone=orderedTasks().filter(t=>!doneSessionToday(t.id)&&!isSkipped(t.id));let added=0;
   undone.forEach(t=>{if(!store.carryover.some(c=>c.id===t.id)){store.carryover.push({id:t.id,name:t.name,emoji:t.emoji,description:t.description||'',micro:(t.micro||[]).slice()});added++;}});
   save();if(!silent){try{alert(added?(added+" undone task(s) queued for tomorrow ✓"):"Nothing undone to carry over.");}catch(e){}}return added;}
@@ -412,12 +421,13 @@ function renderToday(){
     const _pwt=t.wtype||(t.id==='workout'&&store.lastWtype?nextWtype(store.lastWtype):'');
     const wbadge=_pwt?`<span class="wbadge" onclick="event.stopPropagation();cycleWtype('${t.id}')" title="tap to set workout type">${esc(_pwt)}${!t.wtype?' ·?':''}</span>`:(t.id==='workout'?`<span class="wbadge" onclick="event.stopPropagation();cycleWtype('${t.id}')" title="tap to set workout type">set type</span>`:'');
     const ptsbadge=isBonus(t)?`<span class="ptspill" onclick="event.stopPropagation();cyclePts('${t.id}')" title="tap: 5 / 10 / 20">+${taskPts(t)}</span>`:'';
-    const d=document.createElement('div');d.className='card';d.style.cursor='pointer';
-    d.onclick=()=>previewTask(t.id);
-    d.innerHTML=`<div class="row"><div class="tleft"><span class="emoji">${t.emoji||'•'}</span>
+    const d=document.createElement('div');d.className='card';d.style.cursor='pointer';d.dataset.tid=t.id;
+    d.onclick=()=>{if(window._dndMoved){window._dndMoved=false;return;}previewTask(t.id);};
+    d.innerHTML=`<div class="row"><div class="tleft"><span class="grip" data-grip title="drag to reorder" onclick="event.stopPropagation()">⠿</span><span class="emoji">${t.emoji||'•'}</span>
       <div style="min-width:0"><div class="tname">${esc(t.name)}${wbadge}${ptsbadge}</div>
       <div class="tsub">${t.micro.length} steps${dn?' · done '+tOnly(dn.end):''}${pk?' · ⏸ '+pk.micro.filter(m=>m.done).length+'/'+pk.micro.length+' done':''} · tap to preview</div></div></div><div class="tright" onclick="event.stopPropagation()">${right}</div></div>
       <div class="cardfoot">${dn?`<button class="skiplink" style="color:var(--accent2)" onclick="event.stopPropagation();undoDone('${t.id}')">↩ mark not done</button>`:''}<button class="skiplink" onclick="event.stopPropagation();toggleSkip('${t.id}')">${sk?'un-skip':'skip today'}</button>
+      <button class="skiplink" onclick="event.stopPropagation();moveToTomorrow('${t.id}')">→ tomorrow</button>
       <button class="skiplink" onclick="event.stopPropagation();toggleKind('${t.id}')">${isBonus(t)?'→ main':'→ bonus'}</button>
       <button class="skiplink" onclick="event.stopPropagation();removeTaskToday('${t.id}')">remove</button></div>`;
     return {node:d,sk,dn};
@@ -538,6 +548,25 @@ function refreshOnReturn(){if(checkRollover())renderToday();/* app reopened acro
   if(active&&!active._editing&&!active.end){if(!tick)tick=setInterval(updTimer,1000);updTimer();}
   if(store.bg&&store.bg.length){if(!bgTick)bgTick=setInterval(updBg,1000);updBg();}
   if(store.cloudSync&&Date.now()-_statePullAt>8000)pullParked();/* pick up a pause made on another device */}
+/* drag-to-reorder Today/bonus cards via the ⠿ grip — pointer events, works on touch + mouse */
+let _dnd=null;
+function gripDown(e){const grip=e.target&&e.target.closest?e.target.closest('[data-grip]'):null;if(!grip)return;
+  const card=grip.closest('.card');if(!card||!card.parentElement)return;e.preventDefault();
+  _dnd={card,list:card.parentElement};try{card.setPointerCapture(e.pointerId);}catch(_){}
+  card.classList.add('dragging');blip();
+  window.addEventListener('pointermove',gripMove,{passive:false});
+  window.addEventListener('pointerup',gripUp);window.addEventListener('pointercancel',gripUp);}
+function gripMove(e){if(!_dnd)return;e.preventDefault();window._dndMoved=true;
+  const y=e.clientY,list=_dnd.list;let before=null;
+  [...list.children].filter(c=>c.classList.contains('card')&&c!==_dnd.card).some(o=>{const r=o.getBoundingClientRect();if(y<r.top+r.height/2){before=o;return true;}return false;});
+  if(before)list.insertBefore(_dnd.card,before);else list.appendChild(_dnd.card);}
+function gripUp(){if(!_dnd)return;_dnd.card.classList.remove('dragging');_dnd=null;
+  window.removeEventListener('pointermove',gripMove);window.removeEventListener('pointerup',gripUp);window.removeEventListener('pointercancel',gripUp);
+  const ids=el=>el?[...el.children].filter(c=>c.classList.contains('card')).map(c=>c.dataset.tid).filter(Boolean):[];
+  const mains=ids(document.getElementById('today-list')),bonus=ids(document.getElementById('bonus-list')),shown=new Set([...mains,...bonus]);
+  store.order=mains.concat(bonus).concat(store.order.filter(id=>!shown.has(id)));save();
+  setTimeout(()=>{window._dndMoved=false;},450);renderToday();}
+document.addEventListener('pointerdown',gripDown);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshOnReturn();});
 window.addEventListener('pageshow',refreshOnReturn);
 window.addEventListener('focus',refreshOnReturn);
@@ -803,9 +832,12 @@ function pullBackup(force){const url=store.sheetUrl||BAKED_SHEET_URL;if(!url)ret
   function clean(){if(done)return;done=true;delete window[fn];const s3=document.getElementById(fn);if(s3)s3.remove();}
   window[fn]=function(d){try{const st=d&&d.state;
     if(st&&st.data&&typeof st.data==='object'){
-      if(force||isEmptyStore()){
+      if(force){/* restore ONLY on the explicit Settings button — never automatically (auto-restore once wiped a freshly-logged session) */
         const when=st._ts?new Date(st._ts).toLocaleString():'unknown time';
-        if(confirm('Restore your data from the cloud backup ('+when+')?\n\nThis replaces what is on THIS device. Your sync connection stays.')){
+        const bn=(st.data.sessions||[]).length,ln=(store.sessions||[]).length;
+        let msg='Restore your data from the cloud backup ('+when+')?\n\nThis REPLACES everything on THIS device. Your sync connection stays.';
+        if(bn<ln)msg='⚠ The cloud backup has FEWER sessions than this device ('+bn+' vs '+ln+').\nRestoring will LOSE '+(ln-bn)+' session(s) logged here.\n\nRestore anyway?';
+        if(confirm(msg)){
           const o=Object.assign({},st.data);o.sheetUrl=store.sheetUrl;o.cloudSync=store.cloudSync;delete o.active;
           localStorage.setItem(LS,JSON.stringify(o));alert('Restored ✓ — reloading.');location.reload();return;}
       }
@@ -835,7 +867,7 @@ function toggleCarry(){store.autoCarry=!store.autoCarry;save();renderCarryBtn();
 function renderCarryBtn(){const b=document.getElementById('carry-toggle');if(b)b.textContent=store.autoCarry?'On':'Off';}
 function toggleCloud(){if(!store.cloudSync){if(!confirm("Turn on cross-device sync?\n\nOnly do this AFTER you've pasted the script update and hit Deploy. Otherwise paused tasks won't sync and it may write junk rows."))return;}
   store.cloudSync=!store.cloudSync;save();renderCloudBtn();startStatePoll();
-  if(store.cloudSync){pushParked();pullParked(()=>renderActiveBanner());if(isEmptyStore())pullBackup(false);else pushBackup();}}
+  if(store.cloudSync){pushParked();pullParked(()=>renderActiveBanner());pushBackup();}}
 function renderCloudBtn(){const b=document.getElementById('cloud-toggle');if(b)b.textContent=store.cloudSync?'On':'Off';}
 /* cross-device sync of paused/parked tasks via the Apps Script "AppState" store (last-write-wins by _ts) */
 function pushParked(){if(!store.cloudSync||store.testMode)return;
@@ -1030,7 +1062,7 @@ function restoreActive(){if(!store.active)return;active=store.active;
   if(active.end){document.getElementById('sess-timer').textContent=clock(active.durMs||0);}
   else{tick=setInterval(updTimer,1000);updTimer();}}
 try{checkRollover();resendOutbox();save();setTestBar();restoreActive();}catch(e){console.warn('boot recover',e);active=null;try{delete store.active;save();}catch(_){}}
-if(!active)renderToday();fetchPlan();try{pullParked();startStatePoll();if(store.cloudSync&&isEmptyStore())pullBackup(false);}catch(e){}
+if(!active)renderToday();fetchPlan();try{pullParked();startStatePoll();}catch(e){}
 try{pullClaudeLogs(()=>{renderClaudeStrip();if(!document.getElementById('view-history').classList.contains('hidden'))renderHistory();});}catch(e){}
 </script>
 </body>
