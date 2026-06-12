@@ -341,7 +341,7 @@ const dOnly=d=>new Date(d).toLocaleDateString([],{month:'short',day:'numeric'});
 const hhmm=d=>{const x=new Date(d);return two(x.getHours())+':'+two(x.getMinutes());};
 function timeToISO(baseISO,t){const d=new Date(baseISO);const p=t.split(':');d.setHours(+p[0],+p[1],0,0);return d.toISOString();}
 const orderedTasks=()=>store.order.map(id=>store.tasks.find(t=>t.id===id)).filter(Boolean).concat(store.tasks.filter(t=>!store.order.includes(t.id)));
-/* main vs bonus + workout type cycle (Push→Pull→Legs→Run+Abs→…) */
+/* main vs bonus + workout type cycle (Push→Pull→Legs→Run+Abs→…) — hardened 2026-06-12: workout non-removable; lastWtype advances on adopt+finish so the cycle never stalls */
 const WCYCLE=['Push','Pull','Legs','Run+Abs'];
 function nextWtype(w){const i=WCYCLE.indexOf(w);return i<0?'Push':WCYCLE[(i+1)%WCYCLE.length];}
 const isBonus=t=>t.kind==='bonus';
