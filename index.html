@@ -654,6 +654,7 @@ function pullClaudeLogs(cb){
   window[fn]=function(data){
     try{
       const rows=(data&&data.sessions)||[];
+      store.syncedSids=rows.map(r=>String(r.sid||'')).filter(Boolean);/* read-back: which sessions are confirmed in the Sheet */
       const localSids=new Set(store.sessions.map(s=>s.id));
       store.remoteSessions=rows.filter(r=>r.sid&&!localSids.has(r.sid)).map(r=>({
         id:r.sid,taskId:r.taskId||'',taskName:r.task||r.title||'task',title:r.title||r.task||'task',
@@ -691,6 +692,7 @@ function renderReview(){
   if(!wk.length){el.innerHTML=totalsCard+'<div class="card hint">No finished sessions in the last 7 days yet.</div>';return;}
   const totMin=wk.reduce((a,s)=>a+s.durMs,0)/60000, prevMin=prev.reduce((a,s)=>a+s.durMs,0)/60000;
   const trend=prevMin?Math.round((totMin-prevMin)/prevMin*100):0;
+  const wkBonus=wk.filter(s=>s.kind==='bonus'),wkBonusMs=wkBonus.reduce((a,s)=>a+s.durMs,0);
   // per task
   const byTask={};wk.forEach(s=>{(byTask[s.taskName]=byTask[s.taskName]||[]).push(s.durMs);});
   let taskRows=Object.entries(byTask).map(([n,arr])=>`<div class="rev-line"><span>${n}</span><span class="pill">${arr.length}× · avg ${mins(arr.reduce((a,b)=>a+b,0)/arr.length)}</span></div>`).join('');
@@ -705,7 +707,7 @@ function renderReview(){
       <div class="box"><div class="v">${wk.length}</div><div class="k">sessions</div></div>
       <div class="box"><div class="v">${mins(totMin*60000)}</div><div class="k">total time</div></div>
       <div class="box"><div class="v" style="color:${trend>0?'var(--amber)':'var(--accent2)'}">${trend>0?'+':''}${trend}%</div><div class="k">vs prev wk</div></div>
-    </div></div>
+    </div>${wkBonus.length?`<div class="efl" style="margin-top:8px">⚡ Bonus effort this week: ${wkBonus.length} session${wkBonus.length===1?'':'s'} · ${mins(wkBonusMs)} focused</div>`:''}</div>
     <div class="card"><div style="font-weight:700;margin-bottom:4px">Avg time per task</div>${taskRows}</div>
     <div class="card"><div style="font-weight:700;margin-bottom:4px">Slowest steps</div>${slowRows}</div>
     <div class="card"><div style="font-weight:700;margin-bottom:4px">Hiccups this week</div>${notes}
@@ -744,6 +746,9 @@ function deleteSession(sid){const i=store.sessions.findIndex(x=>x.id===sid);if(i
   const o=s.start;store.sessions.splice(i,1);save();
   post({type:'delete',sid:sid,origStartISO:o});
   renderHistory();try{alert(store.testMode?"🧪 Test mode — deleted locally only.":"Deleted ✓ — removing from calendar + sheet.");}catch(e){}}
+/* read-back verification: is this local session confirmed present in the Sheet? */
+function sessVerified(s){if((store.syncedSids||[]).indexOf(String(s.id))>=0)return 'ok';
+  return (Date.now()-new Date(s.start))<8*864e5?'pending':'';}
 function renderHistory(){
   const t=dayKey();let opts='';
   for(let i=0;i>=-7;i--){const dk=addDayKey(t,i);opts+=`<option value="${dk}"${dk===logDate?' selected':''}>${dayLabelOf(dk)}</option>`;}
@@ -756,8 +761,9 @@ function renderHistory(){
   if(!list.length){el.innerHTML='<div class="hint">No sessions logged on this day.</div>';return;}
   list.forEach(s=>{const done=s.micro.filter(m=>m.done).length;
     const gold=isGold(s),claude=(s.owner==='Claude');const microTxt=s.micro.length?` · ${done}/${s.micro.length}`:'';
+    const _v=s._remote?'':sessVerified(s);const vTxt=_v==='ok'?' · <span style="color:var(--accent2)">✓ in Sheet</span>':(_v==='pending'?' · <span style="color:var(--dim)">⏳ syncing</span>':'');
     el.innerHTML+=`<div class="hist"${gold?' style="border-left:3px solid var(--amber)"':''}><div class="row"><div style="min-width:0"><div class="hname"${gold?' style="color:var(--amber)"':''}>${claude?'🤖 ':''}${s.title||s.taskName}</div>
-      <div class="hmeta">${tOnly(s.start)}–${tOnly(s.end)} · ${mins(s.durMs)}${microTxt}${s.output?' · '+s.output:''}</div>
+      <div class="hmeta">${tOnly(s.start)}–${tOnly(s.end)} · ${mins(s.durMs)}${microTxt}${vTxt}${s.output?' · '+s.output:''}</div>
       ${s.reflection?`<div class="note">⚑ ${s.reflection}</div>`:''}</div>
       ${s._remote?'<div class="pill" style="color:var(--amber);border-color:#3a2f15;align-self:flex-start">live</div>':`<div style="white-space:nowrap"><button class="btn sm ghost" onclick="editSession('${s.id}')">Edit</button> <button class="btn sm ghost" style="color:var(--red)" onclick="deleteSession('${s.id}')">✕</button></div>`}</div></div>`;});}
 function exportCSV(){let rows=[["date","task","start","end","duration_min","checked","total","output","slowest_step","slowest_min","reflection"]];
@@ -813,7 +819,11 @@ function pullBackup(force){const url=store.sheetUrl||BAKED_SHEET_URL;if(!url)ret
 function restoreFromCloud(){if(!store.cloudSync){alert('Turn on ☁️ Cross-device sync first.');return;}pullBackup(true);}
 
 /* settings / editor */
-function renderSyncState(){const e=document.getElementById('sync-state2');if(e)e.innerHTML=store.lastSync?('<span class="ok">Last sync: '+tOnly(store.lastSync)+'</span>'+(store.outbox.length?(' · '+store.outbox.length+' queued (auto-resends)'):'')):'<span class="off">nothing sent yet</span>';}
+function renderSyncState(){const e=document.getElementById('sync-state2');if(!e)return;
+  const recent=store.sessions.filter(s=>s.end&&(Date.now()-new Date(s.start))<8*864e5);
+  const ok=recent.filter(s=>(store.syncedSids||[]).indexOf(String(s.id))>=0).length;
+  const vTxt=recent.length?(' · <span class="'+(ok===recent.length?'ok':'off')+'">✓ '+ok+'/'+recent.length+' recent verified in Sheet</span>'):'';
+  e.innerHTML=(store.lastSync?('<span class="ok">Last sync: '+tOnly(store.lastSync)+'</span>'+(store.outbox.length?(' · '+store.outbox.length+' queued (auto-resends)'):'')):'<span class="off">nothing sent yet</span>')+vTxt;}
 function saveSheetUrl(){store.sheetUrl=document.getElementById('sheet-url').value.trim();save();
   document.getElementById('url-state').innerHTML=store.sheetUrl?'<span class="ok">✓ Custom endpoint saved</span>':'<span class="off">using built-in</span>';}
 function toggleFx(){store.fx=!store.fx;save();renderFxBtn();if(store.fx)blip();}
@@ -999,7 +1009,7 @@ function go(v){['today','session','summary','review','history','settings','notes
   if(v==='today'||v==='history'){if(Date.now()-_claudePullAt>20000)pullClaudeLogs(()=>{if(v==='today')renderClaudeStrip();else renderHistory();});}
   if(v==='today'&&store.cloudSync&&Date.now()-_statePullAt>8000)pullParked();
   if(v==='today')renderToday(); if(v==='review')renderReview(); if(v==='history')renderHistory(); if(v==='notes')renderNotes();
-  if(v==='settings'){document.getElementById('sheet-url').value=store.sheetUrl||'';renderTaskEditor();renderFxBtn();renderTestBtn();renderCarryBtn();renderCloudBtn();renderSyncState();}
+  if(v==='settings'){document.getElementById('sheet-url').value=store.sheetUrl||'';renderTaskEditor();renderFxBtn();renderTestBtn();renderCarryBtn();renderCloudBtn();renderSyncState();pullClaudeLogs(()=>renderSyncState());}
   window.scrollTo(0,0);}
 /* bring a live session back if iOS reloaded the app while it was backgrounded */
 function restoreActive(){if(!store.active)return;active=store.active;
