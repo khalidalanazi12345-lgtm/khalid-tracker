@@ -358,7 +358,7 @@ function sessionsOn(dk){return store.sessions.filter(s=>s.end&&dayKey(s.start)==
 store.bg=store.bg||[]; store.remoteSessions=store.remoteSessions||[]; store.carryover=store.carryover||[]; if(store.autoCarry===undefined)store.autoCarry=false; store.lastDay=store.lastDay||dayKey(); store.outbox=store.outbox||[]; store.lastSync=store.lastSync||0; store.notes=store.notes||{}; if(store.peekOpen===undefined)store.peekOpen=false; store.parked=store.parked||[]; store.parkedTs=store.parkedTs||0; if(store.cloudSync===undefined)store.cloudSync=false;
 let bgTick=null;
 function carryOver(silent){const undone=orderedTasks().filter(t=>!doneSessionToday(t.id)&&!isSkipped(t.id));let added=0;
-  undone.forEach(t=>{if(!store.carryover.some(c=>c.name===t.name)){store.carryover.push({id:t.id,name:t.name,emoji:t.emoji,description:t.description||'',micro:(t.micro||[]).slice()});added++;}});
+  undone.forEach(t=>{if(!store.carryover.some(c=>c.id===t.id)){store.carryover.push({id:t.id,name:t.name,emoji:t.emoji,description:t.description||'',micro:(t.micro||[]).slice()});added++;}});
   save();if(!silent){try{alert(added?(added+" undone task(s) queued for tomorrow ✓"):"Nothing undone to carry over.");}catch(e){}}return added;}
 function checkRollover(){if(store.lastDay&&store.lastDay!==dayKey()){if(store.autoCarry)carryOver(true);store.lastDay=dayKey();save();return true;}return false;}
 function delegate(id){const t=store.tasks.find(x=>x.id===id);if(!t)return;
@@ -476,7 +476,7 @@ function setRing(el,done,total){const pct=total?Math.round(done/total*100):0;
   document.getElementById(el+'-pct').textContent=pct+'%';
   document.getElementById(el+'-sub').textContent=`${done} / ${total} done`;}
 /* avg finished duration for a task (needs >=2 past runs to be meaningful) — powers the pace nudge */
-function taskAvgMs(taskId){const xs=store.sessions.filter(s=>s.taskId===taskId&&s.end&&s.durMs>0);
+function taskAvgMs(taskId){const xs=store.sessions.filter(s=>s.taskId===taskId&&s.end&&s.durMs>0&&(s.owner||'Me')!=='Claude');
   if(xs.length<2)return null;return xs.reduce((a,s)=>a+s.durMs,0)/xs.length;}
 function renderSession(){
   document.getElementById('sess-title').textContent=active.taskName;
@@ -679,10 +679,10 @@ function allSessionsOn(dk){
 
 /* review */
 function windowSessions(daysAgoStart,daysAgoEnd){const now=Date.now();
-  return store.sessions.filter(s=>s.end&&(now-new Date(s.start))<daysAgoStart*864e5&&(now-new Date(s.start))>=daysAgoEnd*864e5);}
+  return store.sessions.filter(s=>s.end&&(s.owner||'Me')!=='Claude'&&(now-new Date(s.start))<daysAgoStart*864e5&&(now-new Date(s.start))>=daysAgoEnd*864e5);}
 function renderReview(){
   const el=document.getElementById('review-body');
-  const _all=store.sessions.filter(s=>s.end&&s.durMs>0);
+  const _all=store.sessions.filter(s=>s.end&&s.durMs>0&&(s.owner||'Me')!=='Claude');
   const _allMs=_all.reduce((a,s)=>a+s.durMs,0);
   const _mn=new Date(),_mStart=new Date(_mn.getFullYear(),_mn.getMonth(),1).getTime();
   const _monthMs=_all.filter(s=>new Date(s.start).getTime()>=_mStart).reduce((a,s)=>a+s.durMs,0);
