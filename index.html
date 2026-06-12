@@ -320,7 +320,7 @@ const DEFAULT_TASKS=[
 ];
 const BAKED_SHEET_URL="https://script.google.com/macros/s/AKfycbxfqJIjFZaBLJE4jjV6jJXELsLfvxFYq96l_V4ffCa3woLiBNYnb6qd0GxBu8b9FxjF/exec";
 
-const BUILD="2026-06-12.11";/* bump this + version.json on every deploy so the app can detect updates */
+const BUILD="2026-06-12.12";/* bump this + version.json on every deploy so the app can detect updates */
 const LS="khalid_prod_tracker_v4";
 let store=JSON.parse(localStorage.getItem(LS)||'null')||{};
 store.sessions=store.sessions||[]; store.sheetUrl=store.sheetUrl||"";
@@ -399,7 +399,9 @@ function blip(){if(!store.fx)return;try{navigator.vibrate&&navigator.vibrate(12)
     o.connect(g);g.connect(actx.destination);o.start();o.stop(actx.currentTime+.19);}catch(e){}}
 
 /* today helpers */
-function doneSessionToday(id){return store.sessions.find(s=>s.taskId===id&&s.end&&dayKey(s.start)===dayKey());}
+function doneSessionToday(id){const _t=store.tasks.find(x=>x.id===id),_nm=_t&&_t.name;
+  return store.sessions.find(s=>s.taskId===id&&s.end&&dayKey(s.start)===dayKey())
+    ||(_nm&&(store.remoteSessions||[]).find(s=>s.end&&dayKey(s.start)===dayKey()&&(s.taskName===_nm||s.title===_nm)))||null;}
 function isSkipped(id){return (store.skips[dayKey()]||[]).includes(id);}
 function toggleSkip(id){const k=dayKey();store.skips[k]=store.skips[k]||[];const i=store.skips[k].indexOf(id);
   if(i>=0)store.skips[k].splice(i,1);else store.skips[k].push(id);save();renderToday();}
@@ -684,10 +686,10 @@ function resendOutbox(){if(store.testMode||!store.outbox.length)return;
   store.outbox.forEach(x=>rawSend(x.obj));store.lastSync=Date.now();save();}
 function pushToSheet(s){const el=document.getElementById('sync-status');if(el)el.innerHTML='<span class="off">Syncing to Sheet + Calendar…</span>';
   post(rowFor(s),()=>{if(el)el.innerHTML='<span class="ok">✓ Sent to Sheet + Calendar</span>';});}
-/* GREEN (10) is ONLY my own main tasks. Everything else — Claude work OR bonus tasks
-   (even ones I do myself) — logs GOLD (Banana, colorId 5). */
-function goldIf(s){return ((s.owner||'Me')==='Claude'||s.kind==='bonus')?'5':'10';}
-function isGold(s){return s.colorId==='5'||(s.owner||'Me')==='Claude'||s.kind==='bonus';}
+/* GOLD (5) = bonus tasks only. Category follows the TASK, not who did it —
+   a Claude-AUTOMATED main task (e.g. NanaBanana) is still MAIN/green (10). */
+function goldIf(s){return s.kind==='bonus'?'5':'10';}
+function isGold(s){return s.colorId==='5'||s.kind==='bonus';}
 /* live-pull what Claude Code logged this week (JSONP — cross-origin GET to Apps Script).
    Keeps ONLY remote rows not already logged on THIS device, so the app never double-counts. */
 let _claudePullAt=0;
