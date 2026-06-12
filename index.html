@@ -321,7 +321,7 @@ store.sessions=store.sessions||[]; store.sheetUrl=store.sheetUrl||"";
 store.tasks=store.tasks||JSON.parse(JSON.stringify(DEFAULT_TASKS));
 store.order=store.order||store.tasks.map(t=>t.id);
 store.skips=store.skips||{}; if(store.fx===undefined)store.fx=true; store.appliedPlanDate=store.appliedPlanDate||""; if(store.testMode===undefined)store.testMode=false;
-let active=null,tick=null; const RING_C=2*Math.PI*86;
+let active=null,tick=null,_sessAvg=0; const RING_C=2*Math.PI*86;
 
 const save=()=>{localStorage.setItem(LS,JSON.stringify(store));scheduleBackup();};
 function persistActive(){if(active)store.active=active;else delete store.active;save();}
@@ -481,8 +481,9 @@ function taskAvgMs(taskId){const xs=store.sessions.filter(s=>s.taskId===taskId&&
 function renderSession(){
   document.getElementById('sess-title').textContent=active.taskName;
   const dsc=document.getElementById('sess-desc');dsc.textContent=active.description||'';dsc.classList.toggle('hidden',!active.description);
-  const pace=document.getElementById('sess-pace');if(pace){const _avg=taskAvgMs(active.taskId);
-    if(_avg){pace.classList.remove('hidden');pace.textContent='⌀ You usually finish this in ~'+mins(_avg);}else pace.classList.add('hidden');}
+  _sessAvg=taskAvgMs(active.taskId)||0;
+  const pace=document.getElementById('sess-pace');if(pace){
+    if(_sessAvg){pace.classList.remove('hidden');pace.textContent='⌀ You usually finish this in ~'+mins(_sessAvg);}else pace.classList.add('hidden');}
   document.getElementById('sess-start').textContent=tOnly(active.start);
   const se=document.getElementById('sess-start-edit');if(se)se.value=hhmm(active.start);
   const en=document.getElementById('sess-end');if(en)en.textContent=active.end?tOnly(active.end):'running';
@@ -503,7 +504,11 @@ function curPausedMs(){if(!active)return 0;let p=active.pausedMs||0;if(active.pa
 function elapsedMs(){if(!active)return 0;const e=active.end?new Date(active.end):Date.now();return Math.max(0,e-new Date(active.start)-curPausedMs());}
 function updTimer(){if(!active)return;
   const a=document.getElementById('sess-timer');if(a&&!active._editing)a.textContent=active.end?clock(active.durMs||0):clock(elapsedMs());
-  const b=document.getElementById('active-banner-timer');if(b&&!active.end)b.textContent=clock(elapsedMs());}
+  const b=document.getElementById('active-banner-timer');if(b&&!active.end)b.textContent=clock(elapsedMs());
+  const pc=document.getElementById('sess-pace');/* live pace vs this task's own average */
+  if(pc&&_sessAvg&&!active.end&&!active._editing){const el=elapsedMs(),over=el>_sessAvg;pc.classList.remove('hidden');
+    pc.style.color=over?'var(--amber)':'var(--accent2)';
+    pc.textContent=over?('⏱ '+mins(el)+' · past your ~'+mins(_sessAvg)+' usual'):('⏱ '+mins(el)+' / ~'+mins(_sessAvg)+' usual');}}
 /* edit the start time mid-session (e.g. forgot to hit Start) — elapsed recomputes live */
 function applyStartEdit(t){if(!active||!t)return;let iso=timeToISO(active.start,t);
   if(new Date(iso)>Date.now()){const d=new Date(iso);d.setDate(d.getDate()-1);iso=d.toISOString();}
@@ -563,8 +568,11 @@ function renderActiveBanner(){const ab=document.getElementById('active-banner');
     h+=`<div class="card" style="border:1px solid var(--accent)"><div class="row"><div class="tleft"><span class="emoji">${em}</span><div style="min-width:0"><div class="tname">${esc(active.taskName)}${paused?' <span class="wbadge">paused</span>':''}</div><div class="tsub">▶ in progress · <span class="timer" id="active-banner-timer">0:00</span></div></div></div><button class="btn sm" onclick="go('session');renderSession()">Resume</button></div></div>`;}
   (store.parked||[]).forEach((p,i)=>{const em=(store.tasks.find(x=>x.id===p.taskId)||{}).emoji||'⏸';
     const _dc=(p.micro||[]).filter(m=>m.done).length,_tc=(p.micro||[]).length;
-    const _when=p.parkedAt&&dayKey(p.parkedAt)!==dayKey()?' · paused '+dayLabelOf(dayKey(p.parkedAt)):' · resume anytime';
-    h+=`<div class="card"><div class="row"><div class="tleft"><span class="emoji">${em}</span><div style="min-width:0"><div class="tname">${esc(p.taskName)} <span class="wbadge">paused</span></div><div class="tsub">${_dc}/${_tc} steps done${_when}</div></div></div><div class="tright"><button class="btn sm" onclick="resumeParked('${p.id}')">▶ Resume</button> <button class="x" onclick="discardParked('${p.id}')">✕</button></div></div></div>`;});
+    const _age=p.parkedAt?Math.floor((Date.now()-new Date(p.parkedAt))/864e5):0,_stale=_age>=1;
+    const _when=_stale?(' · ⚠ paused '+_age+' day'+(_age===1?'':'s')+' ago'):' · resume anytime';
+    const _badge=_stale?'<span class="wbadge" style="color:var(--amber);border-color:#3a2f15">paused '+_age+'d</span>':'<span class="wbadge">paused</span>';
+    const _cardstyle=_stale?' style="border:1px solid #3a2f15"':'';
+    h+=`<div class="card"${_cardstyle}><div class="row"><div class="tleft"><span class="emoji">${em}</span><div style="min-width:0"><div class="tname">${esc(p.taskName)} ${_badge}</div><div class="tsub"${_stale?' style="color:var(--amber)"':''}>${_dc}/${_tc} steps done${_when}</div></div></div><div class="tright"><button class="btn sm" onclick="resumeParked('${p.id}')">▶ Resume</button> <button class="x" onclick="discardParked('${p.id}')">✕</button></div></div></div>`;});
   ab.className=h?'':'hidden';ab.innerHTML=h;
   if(active&&!active.end){if(!tick)tick=setInterval(updTimer,1000);updTimer();}}
 
