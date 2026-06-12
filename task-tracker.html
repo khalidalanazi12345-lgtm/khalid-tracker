@@ -218,7 +218,7 @@
 
 <!-- REVIEW -->
 <div id="view-review" class="hidden">
-  <div class="h-row"><h1>Review</h1><span class="pill">last 7 days</span></div>
+  <div class="h-row"><h1>Review</h1><span class="pill">totals &amp; last 7 days</span></div>
   <div id="review-body"></div>
 </div>
 
@@ -682,8 +682,13 @@ function windowSessions(daysAgoStart,daysAgoEnd){const now=Date.now();
   return store.sessions.filter(s=>s.end&&(now-new Date(s.start))<daysAgoStart*864e5&&(now-new Date(s.start))>=daysAgoEnd*864e5);}
 function renderReview(){
   const el=document.getElementById('review-body');
+  const _all=store.sessions.filter(s=>s.end&&s.durMs>0);
+  const _allMs=_all.reduce((a,s)=>a+s.durMs,0);
+  const _mn=new Date(),_mStart=new Date(_mn.getFullYear(),_mn.getMonth(),1).getTime();
+  const _monthMs=_all.filter(s=>new Date(s.start).getTime()>=_mStart).reduce((a,s)=>a+s.durMs,0);
+  const totalsCard=`<div class="card"><div style="font-weight:700;margin-bottom:6px">Totals</div><div class="substat"><div class="box"><div class="v">${mins(_monthMs)}</div><div class="k">this month</div></div><div class="box"><div class="v">${mins(_allMs)}</div><div class="k">all-time focus</div></div><div class="box"><div class="v">${_all.length}</div><div class="k">sessions ever</div></div></div></div>`;
   const wk=windowSessions(7,0),prev=windowSessions(14,7);
-  if(!wk.length){el.innerHTML='<div class="card hint">No finished sessions in the last 7 days yet.</div>';return;}
+  if(!wk.length){el.innerHTML=totalsCard+'<div class="card hint">No finished sessions in the last 7 days yet.</div>';return;}
   const totMin=wk.reduce((a,s)=>a+s.durMs,0)/60000, prevMin=prev.reduce((a,s)=>a+s.durMs,0)/60000;
   const trend=prevMin?Math.round((totMin-prevMin)/prevMin*100):0;
   // per task
@@ -695,8 +700,8 @@ function renderReview(){
   let slowRows=slow.map(s=>`<div class="rev-line"><span>${s.n}</span><span class="pill" style="color:var(--amber);border-color:#3a2f15">avg ${mins(s.avg)}</span></div>`).join('')||'<div class="hint">—</div>';
   // hiccups
   const notes=wk.filter(s=>s.reflection).map(s=>`<div class="rev-line"><span style="color:var(--amber)">⚑ ${s.taskName}</span></div><div class="hint" style="padding-bottom:8px">${s.reflection}</div>`).join('')||'<div class="hint">No hiccups noted — smooth week 🎉</div>';
-  el.innerHTML=`
-    <div class="card"><div class="substat">
+  el.innerHTML=totalsCard+`
+    <div class="card"><div class="seclabel" style="margin:0 2px 6px">Last 7 days</div><div class="substat">
       <div class="box"><div class="v">${wk.length}</div><div class="k">sessions</div></div>
       <div class="box"><div class="v">${mins(totMin*60000)}</div><div class="k">total time</div></div>
       <div class="box"><div class="v" style="color:${trend>0?'var(--amber)':'var(--accent2)'}">${trend>0?'+':''}${trend}%</div><div class="k">vs prev wk</div></div>
