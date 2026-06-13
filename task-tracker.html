@@ -126,6 +126,7 @@
   <div id="update-banner" class="hidden"></div>
   <div id="plan-banner" class="hidden"></div>
   <div id="active-banner" class="hidden"></div>
+  <div id="break-banner" class="hidden"></div>
   <div class="card" id="day-peek"></div>
   <div class="card ringwrap">
     <div class="ring">
@@ -148,6 +149,7 @@
   </div>
   <div class="card" style="display:flex;gap:10px;flex-wrap:wrap">
     <button class="btn sm ghost" style="flex:1" onclick="addTask()">+ Add task</button>
+    <button class="btn sm ghost" style="flex:1" onclick="startBreak()">☕ Start break</button>
     <button class="btn sm ghost" style="flex:1" onclick="resetToDefault()">Reset to default</button>
     <button class="btn sm ghost" style="flex:1 1 100%" onclick="carryOver()">↪ Carry over undone → tomorrow</button>
   </div>
@@ -320,7 +322,7 @@ const DEFAULT_TASKS=[
 ];
 const BAKED_SHEET_URL="https://script.google.com/macros/s/AKfycbxfqJIjFZaBLJE4jjV6jJXELsLfvxFYq96l_V4ffCa3woLiBNYnb6qd0GxBu8b9FxjF/exec";
 
-const BUILD="2026-06-12.13";/* bump this + version.json on every deploy so the app can detect updates */
+const BUILD="2026-06-13.1";/* bump this + version.json on every deploy so the app can detect updates */
 const LS="khalid_prod_tracker_v4";
 let store=JSON.parse(localStorage.getItem(LS)||'null')||{};
 store.sessions=store.sessions||[]; store.sheetUrl=store.sheetUrl||"";
@@ -363,7 +365,7 @@ function addDayKey(dk,n){const d=new Date(dk+'T00:00');d.setDate(d.getDate()+n);
 function dayLabelOf(dk){const t=dayKey();if(dk===t)return'Today';if(dk===addDayKey(t,-1))return'Yesterday';if(dk===addDayKey(t,1))return'Tomorrow';return new Date(dk+'T00:00').toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'});}
 function sessionsOn(dk){return store.sessions.filter(s=>s.end&&dayKey(s.start)===dk);}
 store.bg=store.bg||[]; store.remoteSessions=store.remoteSessions||[]; store.carryover=store.carryover||[]; if(store.autoCarry===undefined)store.autoCarry=false; store.lastDay=store.lastDay||dayKey(); store.outbox=store.outbox||[]; store.lastSync=store.lastSync||0; store.notes=store.notes||{}; if(store.peekOpen===undefined)store.peekOpen=false; store.parked=store.parked||[]; store.parkedTs=store.parkedTs||0; if(store.cloudSync===undefined)store.cloudSync=false; store.deletedSids=store.deletedSids||[];
-let bgTick=null;
+let bgTick=null,brTick=null;
 /* move ONE task to tomorrow (queue it for the next day + take it off today) */
 function moveToTomorrow(id){const t=store.tasks.find(x=>x.id===id);if(!t)return;
   if(!confirm('Move “'+t.name+'” to tomorrow?'))return;
@@ -406,7 +408,7 @@ function doneSessionToday(id){const _t=store.tasks.find(x=>x.id===id),_nm=_t&&_t
 function isSkipped(id){return (store.skips[dayKey()]||[]).includes(id);}
 function toggleSkip(id){const k=dayKey();store.skips[k]=store.skips[k]||[];const i=store.skips[k].indexOf(id);
   if(i>=0)store.skips[k].splice(i,1);else store.skips[k].push(id);save();renderToday();}
-function streakCount(){const days=new Set(store.sessions.filter(s=>s.end).map(s=>dayKey(s.start)));
+function streakCount(){const days=new Set(store.sessions.filter(s=>s.end&&s.kind!=='break').map(s=>dayKey(s.start)));
   let n=0,d=new Date();while(days.has(dayKey(d))){n++;d.setDate(d.getDate()-1);}return n;}
 
 function renderToday(){
@@ -434,6 +436,7 @@ function renderToday(){
       <div class="tsub">${t.micro.length} steps${dn?' · done '+tOnly(dn.end):''}${pk?' · ⏸ '+pk.micro.filter(m=>m.done).length+'/'+pk.micro.length+' done':''} · tap to preview</div></div></div><div class="tright" onclick="event.stopPropagation()">${right}</div></div>
       <div class="cardfoot">${dn?`<button class="skiplink" style="color:var(--accent2)" onclick="event.stopPropagation();undoDone('${t.id}')">↩ mark not done</button>`:''}<button class="skiplink" onclick="event.stopPropagation();toggleSkip('${t.id}')">${sk?'un-skip':'skip today'}</button>
       <button class="skiplink" onclick="event.stopPropagation();moveToTomorrow('${t.id}')">→ tomorrow</button>
+      <button class="skiplink" onclick="event.stopPropagation();quickRenameTask('${t.id}')">✎ rename</button>
       <button class="skiplink" onclick="event.stopPropagation();toggleKind('${t.id}')">${isBonus(t)?'→ main':'→ bonus'}</button>
       <button class="skiplink" onclick="event.stopPropagation();removeTaskToday('${t.id}')">remove</button></div>`;
     return {node:d,sk,dn};
@@ -476,6 +479,9 @@ function renderToday(){
   if(store.bg.length){updBg();bgTick=setInterval(updBg,1000);}
   renderClaudeStrip();
   renderActiveBanner();
+  renderBreakBanner();
+  if(brTick){clearInterval(brTick);brTick=null;}
+  if(store.activeBreak){updBreak();brTick=setInterval(updBreak,1000);}
   renderDayPeek();
 }
 
@@ -610,6 +616,42 @@ function resumeParked(id){const p0=(store.parked||[]).find(p=>p.id===id);if(!p0)
   if(active.pauseStart){active.pausedMs=(active.pausedMs||0)+(Date.now()-new Date(active.pauseStart));active.pauseStart=null;}
   persistActive();go('session');renderSession();if(!tick)tick=setInterval(updTimer,1000);updTimer();}
 function discardParked(id){const idx=(store.parked||[]).findIndex(p=>p.id===id);if(idx<0)return;const p=store.parked[idx];if(!confirm('Discard parked “'+p.taskName+'”? Its time is lost.'))return;store.parked.splice(idx,1);store.parkedTs=Date.now();save();pushParked();renderToday();}
+/* ── re-sync a logged session's row to Sheet + Calendar (used by rename) ── */
+function reSyncSession(s){if(store.testMode||s._test||!s.end)return;
+  post({type:'edit',sid:s.id,origStartISO:s.start,title:(s.title||s.taskName),task:s.taskName,
+    colorId:goldIf(s),owner:s.owner||'Me',date:new Date(s.start).toLocaleDateString(),
+    start_time:tOnly(s.start),end_time:tOnly(s.end),startISO:s.start,endISO:s.end,
+    duration_min:Math.round((s.durMs||0)/60000),checked:(s.micro||[]).filter(m=>m.done).length,total:(s.micro||[]).length,
+    output:s.output||'',slowest_step:s._slow?s._slow.name:'',slowest_min:s._slow?Math.round(s._slow.durMs/60000):'',reflection:s.reflection||''});}
+/* quick-rename a task from Today — renames the task AND today's logged/running copies + re-syncs the Sheet/Calendar */
+function quickRenameTask(id){const t=store.tasks.find(x=>x.id===id);if(!t)return;
+  const n=prompt('Rename this task:',t.name);if(n===null)return;const nm=n.trim();if(!nm||nm===t.name)return;const old=t.name;
+  t.name=nm;
+  if(active&&active.taskId===id)active.taskName=nm;
+  (store.parked||[]).forEach(p=>{if(p.taskId===id)p.taskName=nm;});
+  store.bg.forEach(b=>{if(b.taskId===id)b.taskName=nm;});
+  store.sessions.filter(s=>s.taskId===id&&dayKey(s.start)===dayKey()).forEach(s=>{
+    if(!s.title||s.title===old||s.title==='🤖 '+old)s.title=s.title?((s.owner==='Claude'?'🤖 ':'')+nm):'';
+    s.taskName=nm;reSyncSession(s);});
+  save();blip();renderToday();}
+/* rename a single logged session from the Log screen — works for done & already-synced rows */
+function renameSession(id){let s=store.sessions.find(x=>x.id===id);if(!s)s=(store.remoteSessions||[]).find(x=>x.id===id);if(!s)return;
+  const cur=s.title||s.taskName;const n=prompt('Rename this logged session:',cur);if(n===null)return;const nm=n.trim();if(!nm||nm===cur)return;
+  s.title=nm;save();reSyncSession(s);renderHistory();try{alert('Renamed ✓ — Sheet + Calendar updating.');}catch(e){}}
+/* ── breaks: time a break (e.g. "candle break") and log it like a session, flagged as a break ── */
+function startBreak(){if(store.activeBreak){renderToday();return;}
+  const nm=prompt('Break name (optional):','Break');if(nm===null)return;
+  store.activeBreak={id:'br'+Date.now(),name:(nm.trim()||'Break'),start:nowISO(),_test:store.testMode};save();blip();renderToday();}
+function stopBreak(){const b=store.activeBreak;if(!b)return;
+  const end=nowISO(),durMs=Math.max(0,new Date(end)-new Date(b.start));delete store.activeBreak;
+  const s={id:b.id,taskId:'break',taskName:b.name,owner:'Me',kind:'break',title:'☕ '+b.name,start:b.start,end:end,durMs:durMs,micro:[],output:'',reflection:'',steps:[],_slow:null,_test:b._test};
+  if(store.testMode||b._test){save();renderToday();try{alert('🧪 Test break — not logged · '+mins(durMs));}catch(e){}return;}
+  store.sessions.push(s);save();pushToSheet(s);renderToday();try{alert('☕ Break logged ✓ · '+mins(durMs));}catch(e){}}
+function renderBreakBanner(){const el=document.getElementById('break-banner');if(!el)return;
+  if(store.activeBreak){el.className='';
+    el.innerHTML=`<div class="card" style="border:1px solid #3a2f15;background:linear-gradient(180deg,#241c12,#0e120c)"><div class="row"><div class="tleft"><span class="emoji">☕</span><div style="min-width:0"><div class="tname" style="color:var(--amber)">${esc(store.activeBreak.name)}</div><div class="tsub">on break · <span class="timer" id="break-timer">0:00</span></div></div></div><button class="btn sm" onclick="stopBreak()">Stop break</button></div></div>`;}
+  else{el.className='hidden';el.innerHTML='';}}
+function updBreak(){const e=document.getElementById('break-timer');if(e&&store.activeBreak)e.textContent=clock(Date.now()-new Date(store.activeBreak.start));}
 function renderActiveBanner(){const ab=document.getElementById('active-banner');if(!ab)return;let h='';
   if(active&&!active.end){const em=(store.tasks.find(x=>x.id===active.taskId)||{}).emoji||'⏱';const paused=!!active.pauseStart;
     h+=`<div class="card" style="border:1px solid var(--accent)"><div class="row"><div class="tleft"><span class="emoji">${em}</span><div style="min-width:0"><div class="tname">${esc(active.taskName)}${paused?' <span class="wbadge">paused</span>':''}</div><div class="tsub">▶ in progress · <span class="timer" id="active-banner-timer">0:00</span></div></div></div><button class="btn sm" onclick="go('session');renderSession()">Resume</button></div></div>`;}
@@ -689,7 +731,7 @@ function pushToSheet(s){const el=document.getElementById('sync-status');if(el)el
   post(rowFor(s),()=>{if(el)el.innerHTML='<span class="ok">✓ Sent to Sheet + Calendar</span>';});}
 /* GOLD (5) = bonus tasks only. Category follows the TASK, not who did it —
    a Claude-AUTOMATED main task (e.g. NanaBanana) is still MAIN/green (10). */
-function goldIf(s){return s.kind==='bonus'?'5':'10';}
+function goldIf(s){return s.kind==='bonus'?'5':(s.kind==='break'?'8':'10');}
 function isGold(s){return s.colorId==='5'||s.kind==='bonus';}
 /* live-pull what Claude Code logged this week (JSONP — cross-origin GET to Apps Script).
    Keeps ONLY remote rows not already logged on THIS device, so the app never double-counts. */
@@ -822,7 +864,7 @@ function renderHistory(){
     el.innerHTML+=`<div class="hist"${gold?' style="border-left:3px solid var(--amber)"':''}><div class="row"><div style="min-width:0"><div class="hname"${gold?' style="color:var(--amber)"':''}>${claude?'🤖 ':''}${s.title||s.taskName}</div>
       <div class="hmeta">${tOnly(s.start)}–${tOnly(s.end)} · ${mins(s.durMs)}${microTxt}${vTxt}${s.output?' · '+s.output:''}</div>
       ${s.reflection?`<div class="note">⚑ ${s.reflection}</div>`:''}</div>
-      ${s._remote?`<div style="white-space:nowrap"><span class="pill" style="color:var(--amber);border-color:#3a2f15">live</span> <button class="btn sm ghost" onclick="editSession('${s.id}')">Edit</button> <button class="btn sm ghost" style="color:var(--red)" onclick="deleteRemote('${s.id}')">✕</button></div>`:`<div style="white-space:nowrap"><button class="btn sm ghost" onclick="editSession('${s.id}')">Edit</button> <button class="btn sm ghost" style="color:var(--red)" onclick="deleteSession('${s.id}')">✕</button></div>`}</div></div>`;});}
+      ${s._remote?`<div style="white-space:nowrap"><span class="pill" style="color:var(--amber);border-color:#3a2f15">live</span> <button class="btn sm ghost" onclick="renameSession('${s.id}')" title="rename">✎</button> <button class="btn sm ghost" onclick="editSession('${s.id}')">Edit</button> <button class="btn sm ghost" style="color:var(--red)" onclick="deleteRemote('${s.id}')">✕</button></div>`:`<div style="white-space:nowrap"><button class="btn sm ghost" onclick="renameSession('${s.id}')" title="rename">✎</button> <button class="btn sm ghost" onclick="editSession('${s.id}')">Edit</button> <button class="btn sm ghost" style="color:var(--red)" onclick="deleteSession('${s.id}')">✕</button></div>`}</div></div>`;});}
 function exportCSV(){let rows=[["date","task","start","end","duration_min","checked","total","output","slowest_step","slowest_min","reflection"]];
   store.sessions.filter(s=>s.end).forEach(s=>{const r=rowFor(s);rows.push([r.date,r.task,r.start_time,r.end_time,r.duration_min,r.checked,r.total,r.output,r.slowest_step,r.slowest_min,r.reflection]);});
   const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
