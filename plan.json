@@ -1,15 +1,149 @@
 {
-  "date": "2026-06-13",
-  "tasks": [
-    {"id":"workout","name":"Workout","emoji":"🏋️","kind":"main","pts":0,"wtype":"Run+Abs","description":"Rest day in the cycle — run or walk + abs. No gym lifting. (Sunday then rolls to Push.)","micro":["Run / walk","Abs circuit","Finish / log"]},
-    {"id":"nanabanana","name":"NanaBanana Generation","emoji":"🍌","kind":"main","pts":0,"description":"","micro":["Hook image — Video 1","Hook image — Video 2","Hook image — Video 3","Body image — Video 1","Body image — Video 2","Body image — Video 3"]},
-    {"id":"veo31","name":"VEO 3.1 Clips","emoji":"🎬","kind":"main","pts":0,"description":"","micro":["Hook clip — Video 1","Hook clip — Video 2","Hook clip — Video 3","Body clip — Video 1","Body clip — Video 2","Body clip — Video 3"]},
-    {"id":"capcut","name":"CapCut Assembly","emoji":"✂️","kind":"main","pts":0,"description":"","micro":["Assemble Video 1","Assemble Video 2","Assemble Video 3","Post / schedule"]},
-    {"id":"research","name":"Content Research","emoji":"🔍","kind":"main","pts":0,"description":"","micro":["Scroll TikTok burner","Scroll IG burner","Sandcastles feed / Kalodata","Gather + save ideas","Pick top 3"]},
-    {"id":"planvids","name":"Plan next day's videos","emoji":"🗓","kind":"main","pts":0,"description":"","micro":["Check hook-ideas list","Video 1 planned","Video 2 planned","Video 3 planned"]},
-    {"id":"planday","name":"Plan next day","emoji":"🗓","kind":"main","pts":0,"description":"","micro":["Review done / not-done","Build tomorrow's list","Push to app + log calendar"]},
-    {"id":"grillauto","name":"VO3 / NanaBanana automation optimization","emoji":"🤖","kind":"bonus","pts":20,"description":"Make the nano-veo-engine the daily driver. Restructure per today's grill-me: each of the 3 videos is independent (not a linked sequence), handle each asset intelligently, let you pick from a shortlist with full control, first run uses the free/lite version then VEO 3.1 Fast only on the approved take, and ask you when something's unavailable. Test end-to-end on a real day, then retire the old nanabanana.js.","micro":["Restructure the run flow (independent per-video)","Pick-from-shortlist control + ask-when-unavailable","First-run free → Fast on approved take","Test end-to-end on a real day"]},
-    {"id":"appfeatures","name":"Build app features","emoji":"📱","kind":"bonus","pts":20,"description":"Fold in the captured backlog: full per-day Today view (ring + cards for any day, not just the peek), one-tap backup/restore (JSON export/import so a cache-clear can't wipe data), Sheet read-back verify checkmark per session, weekly effort total (gamify bonus points across the week), bottom-menu scroll fix, and finish the in-app workout auto-predict.","micro":["Full per-day Today view","One-tap backup / restore","Sheet read-back verify checkmark","Weekly effort total + bottom-menu fix"]},
-    {"id":"aios","name":"AI OS course — watch + set up","emoji":"🎓","kind":"bonus","pts":20,"description":"Watch the AI OS course fully and set it up — knowledge base, cross-device sync, automated reports. The to-do doc flags this as the gate: no major Drive/structure restructure before it, since it gives the clarity first.","micro":["Watch the course","Set up knowledge base + sync","Note structural changes to make after"]}
-  ]
+    "date": "2026-06-14",
+    "tasks": [
+        {
+            "id": "workout",
+            "name": "Workout",
+            "emoji": "🏋️",
+            "kind": "main",
+            "pts": 0,
+            "wtype": "Push",
+            "description": "Push day — chest, shoulders, triceps. First thing before production. (Then rolls to Pull next.)",
+            "micro": [
+                "Chest / push",
+                "Shoulders",
+                "Triceps",
+                "Finish / log"
+            ]
+        },
+        {
+            "id": "planvids",
+            "name": "Plan next day's videos",
+            "emoji": "🗓",
+            "kind": "main",
+            "pts": 0,
+            "description": "Plan the 3 videos before producing — pull from the hook-ideas list / idea bank.",
+            "micro": [
+                "Check hook-ideas list",
+                "Video 1 planned",
+                "Video 2 planned",
+                "Video 3 planned"
+            ]
+        },
+        {
+            "id": "planday",
+            "name": "Plan next day",
+            "emoji": "🗓",
+            "kind": "main",
+            "pts": 0,
+            "description": "Set up the day before starting production.",
+            "micro": [
+                "Review done / not-done",
+                "Build the day's list",
+                "Push to app + log calendar"
+            ]
+        },
+        {
+            "id": "nanabanana",
+            "name": "NanaBanana Generation",
+            "emoji": "🍌",
+            "kind": "main",
+            "pts": 0,
+            "description": "",
+            "micro": [
+                "Hook image — Video 1",
+                "Hook image — Video 2",
+                "Hook image — Video 3",
+                "Body image — Video 1",
+                "Body image — Video 2",
+                "Body image — Video 3"
+            ]
+        },
+        {
+            "id": "veo31",
+            "name": "VEO 3.1 Clips",
+            "emoji": "🎬",
+            "kind": "main",
+            "pts": 0,
+            "description": "",
+            "micro": [
+                "Hook clip — Video 1",
+                "Hook clip — Video 2",
+                "Hook clip — Video 3",
+                "Body clip — Video 1",
+                "Body clip — Video 2",
+                "Body clip — Video 3"
+            ]
+        },
+        {
+            "id": "capcut",
+            "name": "CapCut Assembly",
+            "emoji": "✂️",
+            "kind": "main",
+            "pts": 0,
+            "description": "",
+            "micro": [
+                "Assemble Video 1",
+                "Assemble Video 2",
+                "Assemble Video 3",
+                "Post / schedule"
+            ]
+        },
+        {
+            "id": "research",
+            "name": "Content Research",
+            "emoji": "🔍",
+            "kind": "main",
+            "pts": 0,
+            "description": "",
+            "micro": [
+                "Scroll TikTok burner",
+                "Scroll IG burner",
+                "Sandcastles feed / Kalodata",
+                "Gather + save ideas",
+                "Pick top 3"
+            ]
+        },
+        {
+            "id": "grillauto",
+            "name": "VO3 / NanaBanana automation optimization",
+            "emoji": "🤖",
+            "kind": "bonus",
+            "pts": 20,
+            "description": "Make the nano-veo-engine the daily driver. Restructure per today's grill-me: each of the 3 videos is independent (not a linked sequence), handle each asset intelligently, let you pick from a shortlist with full control, first run uses the free/lite version then VEO 3.1 Fast only on the approved take, and ask you when something's unavailable. Test end-to-end on a real day, then retire the old nanabanana.js.",
+            "micro": [
+                "Restructure the run flow (independent per-video)",
+                "Pick-from-shortlist control + ask-when-unavailable",
+                "First-run free → Fast on approved take",
+                "Test end-to-end on a real day"
+            ]
+        },
+        {
+            "id": "appfeatures",
+            "name": "Build app features",
+            "emoji": "📱",
+            "kind": "bonus",
+            "pts": 20,
+            "description": "Fold in the captured backlog: full per-day Today view (ring + cards for any day, not just the peek), one-tap backup/restore (JSON export/import so a cache-clear can't wipe data), Sheet read-back verify checkmark per session, weekly effort total (gamify bonus points across the week), bottom-menu scroll fix, and finish the in-app workout auto-predict.",
+            "micro": [
+                "Full per-day Today view",
+                "One-tap backup / restore",
+                "Sheet read-back verify checkmark",
+                "Weekly effort total + bottom-menu fix"
+            ]
+        },
+        {
+            "id": "aios",
+            "name": "AI OS course — watch + set up",
+            "emoji": "🎓",
+            "kind": "bonus",
+            "pts": 20,
+            "description": "Watch the AI OS course fully and set it up — knowledge base, cross-device sync, automated reports. The to-do doc flags this as the gate: no major Drive/structure restructure before it, since it gives the clarity first.",
+            "micro": [
+                "Watch the course",
+                "Set up knowledge base + sync",
+                "Note structural changes to make after"
+            ]
+        }
+    ]
 }
