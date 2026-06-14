@@ -1,18 +1,18 @@
 {
-    "date": "2026-06-14",
+    "date": "2026-06-15",
     "tasks": [
         {
             "id": "workout",
-            "name": "Workout",
+            "name": "Pull Day",
             "emoji": "🏋️",
             "kind": "main",
             "pts": 0,
-            "wtype": "Push",
-            "description": "Push day — chest, shoulders, triceps. First thing before production. (Then rolls to Pull next.)",
+            "wtype": "Pull Day",
+            "description": "Pull day — back, biceps, rear delts. First thing before production. (Cycle: Push Day → Pull Day → Leg Day → Run + Abs.)",
             "micro": [
-                "Chest / push",
-                "Shoulders",
-                "Triceps",
+                "Back / pull",
+                "Biceps",
+                "Rear delts",
                 "Finish / log"
             ]
         },
@@ -22,12 +22,12 @@
             "emoji": "🗓",
             "kind": "main",
             "pts": 0,
-            "description": "Plan the 3 videos before producing — pull from the hook-ideas list / idea bank.",
+            "description": "Plan the 3 videos: hook + full script + reference link. (Simple plan only — production pack is separate.)",
             "micro": [
-                "Check hook-ideas list",
-                "Video 1 planned",
-                "Video 2 planned",
-                "Video 3 planned"
+                "Pull Sandcastles Hooks list",
+                "Pick 3",
+                "Variations + scripts",
+                "Save Video Plan doc"
             ]
         },
         {
@@ -67,12 +67,9 @@
             "pts": 0,
             "description": "",
             "micro": [
-                "Hook clip — Video 1",
-                "Hook clip — Video 2",
-                "Hook clip — Video 3",
-                "Body clip — Video 1",
-                "Body clip — Video 2",
-                "Body clip — Video 3"
+                "Clips — Video 1",
+                "Clips — Video 2",
+                "Clips — Video 3"
             ]
         },
         {
@@ -81,68 +78,90 @@
             "emoji": "✂️",
             "kind": "main",
             "pts": 0,
-            "description": "",
+            "description": "Assemble + caption + overlays + CTA, then export the 3 videos.",
             "micro": [
                 "Assemble Video 1",
                 "Assemble Video 2",
-                "Assemble Video 3",
-                "Post / schedule"
+                "Assemble Video 3"
             ]
         },
         {
             "id": "research",
             "name": "Content Research",
-            "emoji": "🔍",
+            "emoji": "🔬",
             "kind": "main",
             "pts": 0,
-            "description": "",
+            "description": "Daily research — pull/analyze references, bank ideas + variations.",
             "micro": [
-                "Scroll TikTok burner",
-                "Scroll IG burner",
-                "Sandcastles feed / Kalodata",
-                "Gather + save ideas",
-                "Pick top 3"
+                "Pull references",
+                "Analyze",
+                "Bank ideas / variations"
             ]
         },
         {
-            "id": "grillauto",
-            "name": "VO3 / NanaBanana automation optimization",
-            "emoji": "🤖",
+            "id": "test-nanaveo",
+            "name": "Stress-test NanaBanana + VEO3 automation",
+            "emoji": "🧪",
             "kind": "bonus",
             "pts": 20,
-            "description": "Make the nano-veo-engine the daily driver. Restructure per today's grill-me: each of the 3 videos is independent (not a linked sequence), handle each asset intelligently, let you pick from a shortlist with full control, first run uses the free/lite version then VEO 3.1 Fast only on the approved take, and ask you when something's unavailable. Test end-to-end on a real day, then retire the old nanabanana.js.",
+            "description": "TOP priority. Actually run the nano-veo-engine end-to-end on the 3 videos. See what works, what breaks, harden it for reliable daily use so it can take over the production grind.",
             "micro": [
-                "Restructure the run flow (independent per-video)",
-                "Pick-from-shortlist control + ask-when-unavailable",
-                "First-run free → Fast on approved take",
-                "Test end-to-end on a real day"
+                "Launch engine on Video 1",
+                "Note what breaks",
+                "Fix / harden",
+                "Confirm reliable on all 3"
             ]
         },
         {
-            "id": "appfeatures",
-            "name": "Build app features",
-            "emoji": "📱",
+            "id": "test-higgsfield",
+            "name": "Test Higgs Field + Claude",
+            "emoji": "🛰️",
             "kind": "bonus",
-            "pts": 20,
-            "description": "Fold in the captured backlog: full per-day Today view (ring + cards for any day, not just the peek), one-tap backup/restore (JSON export/import so a cache-clear can't wipe data), Sheet read-back verify checkmark per session, weekly effort total (gamify bonus points across the week), bottom-menu scroll fix, and finish the in-app workout auto-predict.",
+            "pts": 10,
+            "description": "Parallel track. Test the Higgs Field + Claude direct-API path (Cling 3.0) from the Marcus Builds Brands video as an alternative to the Nano/VEO automation. Needs the paid sub. Compare cost + speed; test both, no replacement decision yet.",
             "micro": [
-                "Full per-day Today view",
-                "One-tap backup / restore",
-                "Sheet read-back verify checkmark",
-                "Weekly effort total + bottom-menu fix"
+                "Set up sub / access",
+                "Run a test generation",
+                "Compare vs Nano/VEO"
             ]
         },
         {
-            "id": "aios",
-            "name": "AI OS course — watch + set up",
-            "emoji": "🎓",
+            "id": "learn-marcus-hooks",
+            "name": "Marcus Builds Brands + deep-hooks video",
+            "emoji": "📺",
             "kind": "bonus",
-            "pts": 20,
-            "description": "Watch the AI OS course fully and set it up — knowledge base, cross-device sync, automated reports. The to-do doc flags this as the gate: no major Drive/structure restructure before it, since it gives the clarity first.",
+            "pts": 10,
+            "description": "From the content-research YouTube playlist: digest the latest Marcus Builds Brands videos (frameworks) + the 40-min deep hook-framework video from the viral creator. Extract what's usable into the system.",
             "micro": [
-                "Watch the course",
-                "Set up knowledge base + sync",
-                "Note structural changes to make after"
+                "Digest Marcus videos",
+                "Digest 40-min hooks video",
+                "Extract frameworks"
+            ]
+        },
+        {
+            "id": "capcut-features",
+            "name": "CapCut new features",
+            "emoji": "🎞️",
+            "kind": "bonus",
+            "pts": 5,
+            "description": "Tap into CapCut's newer auto-clip / auto-chop / editing-style features (and check if it can connect to Claude). We haven't used these — could cut assembly time.",
+            "micro": [
+                "Explore auto-edit features",
+                "Check Claude/automation hooks",
+                "Note what speeds up assembly"
+            ]
+        },
+        {
+            "id": "review-notes",
+            "name": "Review past-week notes",
+            "emoji": "🗒️",
+            "kind": "bonus",
+            "pts": 10,
+            "description": "Pull all notes from the past week (Notes tab + next-up + Wispr), mark each done / not-done, and action the golden not-done ones — especially anything tied to the main production tasks.",
+            "micro": [
+                "Pull all notes",
+                "Mark done / not-done",
+                "Action golden not-done"
             ]
         }
     ]
