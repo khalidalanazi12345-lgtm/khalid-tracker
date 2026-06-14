@@ -322,7 +322,7 @@ const DEFAULT_TASKS=[
 ];
 const BAKED_SHEET_URL="https://script.google.com/macros/s/AKfycbxfqJIjFZaBLJE4jjV6jJXELsLfvxFYq96l_V4ffCa3woLiBNYnb6qd0GxBu8b9FxjF/exec";
 
-const BUILD="2026-06-13.1";/* bump this + version.json on every deploy so the app can detect updates */
+const BUILD="2026-06-14.1";/* bump this + version.json on every deploy so the app can detect updates */
 const LS="khalid_prod_tracker_v4";
 let store=JSON.parse(localStorage.getItem(LS)||'null')||{};
 store.sessions=store.sessions||[]; store.sheetUrl=store.sheetUrl||"";
@@ -336,6 +336,11 @@ function persistActive(){if(active)store.active=active;else delete store.active;
 const nowISO=()=>new Date().toISOString();
 const two=n=>String(n).padStart(2,'0');
 const dayKey=d=>new Date(d||Date.now()).toLocaleDateString('en-CA');
+/* logical "today": when you start the next day early (before midnight), store.dayOverride holds that
+   future dayKey so attribution/ring/notes count toward it, while the calendar/sheet still use real times.
+   Non-destructive: nothing is deleted; sessions carry a logDay stamp and old data stays under its own day. */
+function curDay(){return store.dayOverride||dayKey();}
+const sDay=s=>s.logDay||dayKey(s.start);/* the day a session counts toward */
 function clock(ms){const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h?`${h}:${two(m)}:${two(s%60)}`:`${m}:${two(s%60)}`;}
 function mins(ms){const m=Math.round(ms/60000);return m<60?m+"m":Math.floor(m/60)+"h "+(m%60)+"m";}
 const tOnly=d=>new Date(d).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
@@ -359,11 +364,11 @@ function cyclePts(id){const t=store.tasks.find(x=>x.id===id);if(!t||!isBonus(t))
   const seq=[5,10,20];const i=seq.indexOf(taskPts(t));t.pts=seq[(i+1)%seq.length];save();renderToday();}
 /* workout type: tap badge to set/cycle Push→Pull→Legs→Run+Abs */
 function cycleWtype(id){const t=store.tasks.find(x=>x.id===id);if(!t)return;t.wtype=nextWtype(t.wtype||store.lastWtype||'');save();blip();renderToday();}
-let logDate=dayKey(),notesDate=dayKey(),peekDate=addDayKey(dayKey(),1);
+let logDate=curDay(),notesDate=curDay(),peekDate=addDayKey(curDay(),1);
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function addDayKey(dk,n){const d=new Date(dk+'T00:00');d.setDate(d.getDate()+n);return dayKey(d);}
 function dayLabelOf(dk){const t=dayKey();if(dk===t)return'Today';if(dk===addDayKey(t,-1))return'Yesterday';if(dk===addDayKey(t,1))return'Tomorrow';return new Date(dk+'T00:00').toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'});}
-function sessionsOn(dk){return store.sessions.filter(s=>s.end&&dayKey(s.start)===dk);}
+function sessionsOn(dk){return store.sessions.filter(s=>s.end&&sDay(s)===dk);}
 store.bg=store.bg||[]; store.remoteSessions=store.remoteSessions||[]; store.carryover=store.carryover||[]; if(store.autoCarry===undefined)store.autoCarry=false; store.lastDay=store.lastDay||dayKey(); store.outbox=store.outbox||[]; store.lastSync=store.lastSync||0; store.notes=store.notes||{}; if(store.peekOpen===undefined)store.peekOpen=false; store.parked=store.parked||[]; store.parkedTs=store.parkedTs||0; if(store.cloudSync===undefined)store.cloudSync=false; store.deletedSids=store.deletedSids||[];
 let bgTick=null,brTick=null;
 /* move ONE task to tomorrow (queue it for the next day + take it off today) */
@@ -375,7 +380,10 @@ function moveToTomorrow(id){const t=store.tasks.find(x=>x.id===id);if(!t)return;
 function carryOver(silent){const undone=orderedTasks().filter(t=>!doneSessionToday(t.id)&&!isSkipped(t.id));let added=0;
   undone.forEach(t=>{if(!store.carryover.some(c=>c.id===t.id)){store.carryover.push({id:t.id,name:t.name,emoji:t.emoji,description:t.description||'',micro:(t.micro||[]).slice()});added++;}});
   save();if(!silent){try{alert(added?(added+" undone task(s) queued for tomorrow ✓"):"Nothing undone to carry over.");}catch(e){}}return added;}
-function checkRollover(){if(store.lastDay&&store.lastDay!==dayKey()){if(store.autoCarry)carryOver(true);store.lastDay=dayKey();save();return true;}return false;}
+function checkRollover(){
+  /* real clock reached/passed the early-started day → the override is now redundant, drop it */
+  if(store.dayOverride&&dayKey()>=store.dayOverride){delete store.dayOverride;save();}
+  if(store.lastDay&&store.lastDay!==dayKey()){if(store.autoCarry)carryOver(true);store.lastDay=dayKey();save();return true;}return false;}
 function delegate(id){const t=store.tasks.find(x=>x.id===id);if(!t)return;
   store.bg.push({id:'b'+Date.now(),taskId:id,taskName:t.name,emoji:t.emoji,owner:'Claude',kind:t.kind||'main',start:nowISO(),_test:store.testMode,micro:t.micro.map(m=>({name:m,done:true,at:nowISO()}))});
   save();blip();renderToday();}
@@ -388,7 +396,7 @@ function finishBg(bid){const i=store.bg.findIndex(b=>b.id===bid);if(i<0)return;c
 function updBg(){store.bg.forEach(b=>{const e=document.getElementById('bgt-'+b.id);if(e)e.textContent=clock(Date.now()-new Date(b.start));});}
 /* gold strip on Today: what Claude Code logged live today (pulled from the sheet) */
 function renderClaudeStrip(){const el=document.getElementById('claude-strip');if(!el)return;
-  const today=(store.remoteSessions||[]).filter(s=>s.end&&dayKey(s.start)===dayKey()).sort((a,b)=>new Date(a.start)-new Date(b.start));
+  const today=(store.remoteSessions||[]).filter(s=>s.end&&sDay(s)===curDay()).sort((a,b)=>new Date(a.start)-new Date(b.start));
   if(!today.length){el.innerHTML='';return;}
   el.innerHTML='<div class="tsub" style="margin:2px 2px 8px;font-weight:700;color:var(--amber)">🤖 Claude logged today ('+today.length+')</div>'+
     today.map(s=>`<div class="card" style="border-left:3px solid var(--amber)"><div class="row"><div class="tleft"><span class="emoji">🤖</span><div style="min-width:0"><div class="tname" style="color:var(--amber)">${s.title||s.taskName}</div><div class="tsub">${tOnly(s.start)}–${tOnly(s.end)} · ${mins(s.durMs)}${s.output?' · '+s.output:''}</div></div></div></div></div>`).join('');}
@@ -403,10 +411,10 @@ function blip(){if(!store.fx)return;try{navigator.vibrate&&navigator.vibrate(12)
 
 /* today helpers */
 function doneSessionToday(id){const _t=store.tasks.find(x=>x.id===id),_nm=_t&&_t.name;
-  return store.sessions.find(s=>s.taskId===id&&s.end&&dayKey(s.start)===dayKey())
-    ||(_nm&&(store.remoteSessions||[]).find(s=>s.end&&dayKey(s.start)===dayKey()&&(s.taskName===_nm||s.title===_nm)))||null;}
-function isSkipped(id){return (store.skips[dayKey()]||[]).includes(id);}
-function toggleSkip(id){const k=dayKey();store.skips[k]=store.skips[k]||[];const i=store.skips[k].indexOf(id);
+  return store.sessions.find(s=>s.taskId===id&&s.end&&sDay(s)===curDay())
+    ||(_nm&&(store.remoteSessions||[]).find(s=>s.end&&sDay(s)===curDay()&&(s.taskName===_nm||s.title===_nm)))||null;}
+function isSkipped(id){return (store.skips[curDay()]||[]).includes(id);}
+function toggleSkip(id){const k=curDay();store.skips[k]=store.skips[k]||[];const i=store.skips[k].indexOf(id);
   if(i>=0)store.skips[k].splice(i,1);else store.skips[k].push(id);save();renderToday();}
 function streakCount(){const days=new Set(store.sessions.filter(s=>s.end&&s.kind!=='break').map(s=>dayKey(s.start)));
   let n=0,d=new Date();while(days.has(dayKey(d))){n++;d.setDate(d.getDate()-1);}return n;}
@@ -453,7 +461,7 @@ function renderToday(){
   document.getElementById('tring-sub').textContent=`${done} / ${activeCount} main`+(bonus.length?` · ⚡${effort}`:'');
   const dru=document.getElementById('done-rollup');
   if(dru){
-    if(activeCount&&done>=activeCount){const _s=sessionsOn(dayKey()),_t=_s.reduce((a,s)=>a+(s.durMs||0),0);
+    if(activeCount&&done>=activeCount){const _s=sessionsOn(curDay()),_t=_s.reduce((a,s)=>a+(s.durMs||0),0);
       dru.className='card';dru.style.cssText='border:1px solid var(--accent);background:linear-gradient(180deg,#10231a,#0e120c)';
       dru.innerHTML=`<div style="font-weight:800;font-size:16px">✅ All ${activeCount} main tasks done — nice work.</div><div class="tsub" style="margin-top:4px">${_s.length} session${_s.length===1?'':'s'} · ${mins(_t)} focused${bonus.length?` · ⚡${effort} bonus`:''} · 🔥 ${streakCount()} day streak</div>`;
     } else { dru.className='hidden'; dru.innerHTML=''; }
@@ -461,14 +469,19 @@ function renderToday(){
   const efl=document.getElementById('effort-line');if(efl)efl.textContent=bonus.length?`⚡ ${effort} / ${effortMax} bonus effort`:'';
   const fp=window._plan,bn=document.getElementById('plan-banner');
   if(bn){
-    if(fp&&fp.date>dayKey()&&store.appliedPlanDate!==fp.date){
+    if(store.dayOverride){
+      /* early-started a future day before midnight — make it unmistakable + offer a non-destructive way back */
+      const dl=new Date(store.dayOverride+'T00:00').toLocaleDateString([],{weekday:'long',month:'short',day:'numeric'});
+      bn.className='card';bn.style.cssText='border:1px solid var(--accent)';
+      bn.innerHTML=`<div class="row"><div style="min-width:0"><div style="font-weight:700;color:var(--accent)">▶ Started early — working on ${dl}</div><div class="tsub">Logging to ${store.dayOverride}. ${dayKey()}'s work is safe in the Log tab.</div></div><button class="btn sm ghost" onclick="endEarlyStart()">Back to today</button></div>`;
+    } else if(fp&&fp.date>dayKey()&&store.appliedPlanDate!==fp.date){
       const dl=new Date(fp.date+'T00:00').toLocaleDateString([],{weekday:'long',month:'short',day:'numeric'});
-      bn.className='card';
+      bn.className='card';bn.style.cssText='';
       bn.innerHTML=`<div class="row"><div style="min-width:0"><div style="font-weight:700">▶ Next day's plan is ready</div><div class="tsub">${dl} · ${fp.tasks.length} tasks · auto-loads at midnight</div></div><button class="btn sm" onclick="startNextDay()">Start now</button></div>`;
     } else if(fp&&fp.date===dayKey()&&store.appliedPlanDate!==fp.date){
-      bn.className='card';
+      bn.className='card';bn.style.cssText='';
       bn.innerHTML=`<div class="row"><div style="min-width:0"><div style="font-weight:700">📋 Today's plan is ready</div><div class="tsub">${fp.tasks.length} tasks · tap to apply (replaces today's list)</div></div><button class="btn sm" onclick="startNextDay()">Apply</button></div>`;
-    } else { bn.className='hidden'; bn.innerHTML=''; }
+    } else { bn.className='hidden'; bn.style.cssText='';bn.innerHTML=''; }
   }
   const bl=document.getElementById('bg-list');
   if(bl){
@@ -490,7 +503,7 @@ function startSession(id){const t=store.tasks.find(x=>x.id===id);if(!t)return;
   const _pIdx=(store.parked||[]).findIndex(p=>p.taskId===id);if(_pIdx>=0){resumeParked(store.parked[_pIdx].id);return;}
   if(active&&!active.end){if(active.taskId===id){go('session');renderSession();if(!tick)tick=setInterval(updTimer,1000);updTimer();return;}
     if(!confirm('“'+active.taskName+'” is still running. Pause it and start “'+t.name+'”? You can resume it later from Today.'))return;parkActive();}
-  active={id:'s'+Date.now(),taskId:id,taskName:t.name,owner:'Me',kind:t.kind||'main',description:t.description||'',title:'',start:nowISO(),end:null,pausedMs:0,pauseStart:null,_test:store.testMode,micro:t.micro.map(m=>({name:m,done:false,at:null,note:null})),output:'',reflection:'',ideas:''};
+  active={id:'s'+Date.now(),taskId:id,taskName:t.name,owner:'Me',kind:t.kind||'main',description:t.description||'',title:'',start:nowISO(),end:null,logDay:curDay(),pausedMs:0,pauseStart:null,_test:store.testMode,micro:t.micro.map(m=>({name:m,done:false,at:null,note:null})),output:'',reflection:'',ideas:''};
   try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();}catch(e){}
   persistActive();go('session');renderSession();tick=setInterval(updTimer,1000);updTimer();}
 function setRing(el,done,total){const pct=total?Math.round(done/total*100):0;
@@ -630,7 +643,7 @@ function quickRenameTask(id){const t=store.tasks.find(x=>x.id===id);if(!t)return
   if(active&&active.taskId===id)active.taskName=nm;
   (store.parked||[]).forEach(p=>{if(p.taskId===id)p.taskName=nm;});
   store.bg.forEach(b=>{if(b.taskId===id)b.taskName=nm;});
-  store.sessions.filter(s=>s.taskId===id&&dayKey(s.start)===dayKey()).forEach(s=>{
+  store.sessions.filter(s=>s.taskId===id&&sDay(s)===curDay()).forEach(s=>{
     if(!s.title||s.title===old||s.title==='🤖 '+old)s.title=s.title?((s.owner==='Claude'?'🤖 ':'')+nm):'';
     s.taskName=nm;reSyncSession(s);});
   save();blip();renderToday();}
@@ -823,7 +836,7 @@ function editSession(sid){const s=store.sessions.find(x=>x.id===sid)||(store.rem
   document.getElementById('sess-timer').textContent=clock(active.durMs||0);
 }
 /* undo an accidental "done" — removes today's logged session for a task (+ its calendar/sheet entry) so it's start-able again */
-function undoDone(id){const todays=store.sessions.filter(x=>x.taskId===id&&x.end&&dayKey(x.start)===dayKey());
+function undoDone(id){const todays=store.sessions.filter(x=>x.taskId===id&&x.end&&sDay(x)===curDay());
   if(!todays.length)return;const s=todays[todays.length-1];const nm=(store.tasks.find(t=>t.id===id)||{}).name||'this task';
   const synced=!store.testMode&&!s._test;
   if(!confirm('Mark “'+nm+'” as not done?\n\nRemoves today’s logged session'+(synced?' (and its calendar + sheet entry).':'.')))return;
@@ -990,7 +1003,18 @@ function adoptPlan(p){
   if(!store.tasks.some(t=>t.id==='workout')){const W=DEFAULT_TASKS.find(t=>t.id==='workout');if(W)store.tasks.unshift(JSON.parse(JSON.stringify(W)));}
   const _w=store.tasks.find(t=>t.id==='workout');if(_w&&_w.wtype)store.lastWtype=_w.wtype;
   store.order=store.tasks.map(t=>t.id);store.appliedPlanDate=p.date;save();renderToday();}
-function startNextDay(){if(window._plan){adoptPlan(window._plan);try{alert("Started plan for "+window._plan.date+" ✓");}catch(e){}}}
+function startNextDay(){if(!window._plan)return;
+  /* starting a FUTURE plan before midnight → set the logical-day override so today's logged work stays
+     attributed to today, and the new day's tasks (done now, at real times) count toward the new day */
+  if(window._plan.date>dayKey())store.dayOverride=window._plan.date;
+  adoptPlan(window._plan);
+  logDate=curDay();notesDate=curDay();peekDate=addDayKey(curDay(),1);save();
+  try{alert(store.dayOverride?("Started "+window._plan.date+" early ✓\n\nToday's work stays saved under "+dayKey()+" (see the Log tab). New tasks now count toward "+window._plan.date+".") :("Started plan for "+window._plan.date+" ✓"));}catch(e){}}
+/* his "Stop next day" — leave the early-started day and go back to the real today. NON-DESTRUCTIVE:
+   every session keeps its logDay, so nothing logged is lost; only the logical-today pointer moves back. */
+function endEarlyStart(){if(!store.dayOverride)return;
+  if(!confirm('Go back to today ('+dayKey()+')?\n\nYour work on '+store.dayOverride+' stays saved in the Log — nothing is deleted.'))return;
+  delete store.dayOverride;logDate=dayKey();notesDate=dayKey();peekDate=addDayKey(dayKey(),1);save();renderToday();}
 function fetchPlan(){fetch('plan.json?t='+Date.now()).then(r=>r.ok?r.json():null).then(p=>{
   if(!p||!p.date||!Array.isArray(p.tasks))return;
   window._plan=p;
@@ -1005,7 +1029,7 @@ function fetchPlan(){fetch('plan.json?t='+Date.now()).then(r=>r.ok?r.json():null
 /* notes — per-task + general, collected into "Notes for the Day", synced to Sheet */
 function noteId(){return 'n'+Date.now()+'-'+Math.floor(Math.random()*1e4);}
 function dayNotes(dk){return store.notes[dk]||[];}
-function addDayNote(text,task,dk){text=(text||'').trim();if(!text)return false;dk=dk||dayKey();
+function addDayNote(text,task,dk){text=(text||'').trim();if(!text)return false;dk=dk||curDay();
   store.notes[dk]=store.notes[dk]||[];
   store.notes[dk].push({id:noteId(),text:text,task:task||'General',at:nowISO()});
   save();blip();pushNotes(dk);return true;}
