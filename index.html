@@ -322,7 +322,7 @@ const DEFAULT_TASKS=[
 ];
 const BAKED_SHEET_URL="https://script.google.com/macros/s/AKfycbxfqJIjFZaBLJE4jjV6jJXELsLfvxFYq96l_V4ffCa3woLiBNYnb6qd0GxBu8b9FxjF/exec";
 
-const BUILD="2026-06-19.1";/* bump this + version.json on every deploy so the app can detect updates */
+const BUILD="2026-06-19.2";/* bump this + version.json on every deploy so the app can detect updates */
 const LS="khalid_prod_tracker_v4";
 let store=JSON.parse(localStorage.getItem(LS)||'null')||{};
 store.sessions=store.sessions||[]; store.sheetUrl=store.sheetUrl||"";
@@ -348,9 +348,7 @@ const dOnly=d=>new Date(d).toLocaleDateString([],{month:'short',day:'numeric'});
 const hhmm=d=>{const x=new Date(d);return two(x.getHours())+':'+two(x.getMinutes());};
 function timeToISO(baseISO,t){const d=new Date(baseISO);const p=t.split(':');d.setHours(+p[0],+p[1],0,0);return d.toISOString();}
 const orderedTasks=()=>store.order.map(id=>store.tasks.find(t=>t.id===id)).filter(Boolean).concat(store.tasks.filter(t=>!store.order.includes(t.id)));
-/* main vs bonus + workout type cycle (Push→Pull→Legs→Run+Abs→…) — hardened 2026-06-12: workout non-removable; lastWtype advances on adopt+finish so the cycle never stalls */
-const WCYCLE=['Push','Pull','Legs','Run+Abs'];
-function nextWtype(w){const i=WCYCLE.indexOf(w);return i<0?'Push':WCYCLE[(i+1)%WCYCLE.length];}
+/* main vs bonus helpers (workout-type cycle removed 2026-06-19 — workout is a plain renamable daily) */
 const isBonus=t=>t.kind==='bonus';
 const taskPts=t=>(t.pts||(isBonus(t)?10:0));
 function removeTaskToday(id){const t=store.tasks.find(x=>x.id===id);if(!t)return;
@@ -362,8 +360,6 @@ function toggleKind(id){const t=store.tasks.find(x=>x.id===id);if(!t)return;
   save();blip();renderToday();}
 function cyclePts(id){const t=store.tasks.find(x=>x.id===id);if(!t||!isBonus(t))return;
   const seq=[5,10,20];const i=seq.indexOf(taskPts(t));t.pts=seq[(i+1)%seq.length];save();renderToday();}
-/* workout type: tap badge to set/cycle Push→Pull→Legs→Run+Abs */
-function cycleWtype(id){const t=store.tasks.find(x=>x.id===id);if(!t)return;t.wtype=nextWtype(t.wtype||store.lastWtype||'');save();blip();renderToday();}
 let logDate=curDay(),notesDate=curDay(),peekDate=addDayKey(curDay(),1);
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function addDayKey(dk,n){const d=new Date(dk+'T00:00');d.setDate(d.getDate()+n);return dayKey(d);}
@@ -378,7 +374,7 @@ function moveToTomorrow(id){const t=store.tasks.find(x=>x.id===id);if(!t)return;
   store.tasks=store.tasks.filter(x=>x.id!==id);store.order=store.order.filter(x=>x!==id);
   save();blip();renderToday();}
 function carryOver(silent){const undone=orderedTasks().filter(t=>!doneSessionToday(t.id)&&!isSkipped(t.id));let added=0;
-  undone.forEach(t=>{if(!store.carryover.some(c=>c.id===t.id)){store.carryover.push({id:t.id,name:t.name,emoji:t.emoji,description:t.description||'',micro:(t.micro||[]).slice()});added++;}});
+  undone.forEach(t=>{if(!store.carryover.some(c=>c.id===t.id)){store.carryover.push({id:t.id,name:t.name,emoji:t.emoji,description:t.description||'',micro:(t.micro||[]).slice(),kind:t.kind,pts:t.pts,wtype:t.wtype});added++;}});
   save();if(!silent){try{alert(added?(added+" undone task(s) queued for tomorrow ✓"):"Nothing undone to carry over.");}catch(e){}}return added;}
 function checkRollover(){
   /* real clock reached/passed the early-started day → the override is now redundant, drop it */
@@ -416,7 +412,7 @@ function doneSessionToday(id){const _t=store.tasks.find(x=>x.id===id),_nm=_t&&_t
 function isSkipped(id){return (store.skips[curDay()]||[]).includes(id);}
 function toggleSkip(id){const k=curDay();store.skips[k]=store.skips[k]||[];const i=store.skips[k].indexOf(id);
   if(i>=0)store.skips[k].splice(i,1);else store.skips[k].push(id);save();renderToday();}
-function streakCount(){const days=new Set(store.sessions.filter(s=>s.end&&s.kind!=='break').map(s=>dayKey(s.start)));
+function streakCount(){const days=new Set(store.sessions.filter(s=>s.end&&s.kind!=='break').map(s=>sDay(s)));
   let n=0,d=new Date();while(days.has(dayKey(d))){n++;d.setDate(d.getDate()-1);}return n;}
 
 function renderToday(){
