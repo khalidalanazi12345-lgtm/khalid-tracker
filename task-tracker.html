@@ -312,7 +312,7 @@
 
 <script>
 const DEFAULT_TASKS=[
-  {id:"workout",name:"Workout",emoji:"🏋️",kind:"main",wtype:"",description:"",micro:["Warm-up","Working sets","Finish / log"]},
+  {id:"workout",name:"Workout",emoji:"🏋️",kind:"main",wtype:"",description:"",micro:[]},
   {id:"nanabanana",name:"NanaBanana Generation",emoji:"🍌",description:"",micro:["Hook image — Video 1","Hook image — Video 2","Hook image — Video 3","Body image — Video 1","Body image — Video 2","Body image — Video 3"]},
   {id:"veo31",name:"VEO 3.1 Clips",emoji:"🎬",description:"",micro:["Hook clip — Video 1","Hook clip — Video 2","Hook clip — Video 3","Body clip — Video 1","Body clip — Video 2","Body clip — Video 3"]},
   {id:"capcut",name:"CapCut Assembly",emoji:"✂️",description:"",micro:["Assemble Video 1","Assemble Video 2","Assemble Video 3","Post / schedule"]},
@@ -322,7 +322,7 @@ const DEFAULT_TASKS=[
 ];
 const BAKED_SHEET_URL="https://script.google.com/macros/s/AKfycbxfqJIjFZaBLJE4jjV6jJXELsLfvxFYq96l_V4ffCa3woLiBNYnb6qd0GxBu8b9FxjF/exec";
 
-const BUILD="2026-06-14.1";/* bump this + version.json on every deploy so the app can detect updates */
+const BUILD="2026-06-19.1";/* bump this + version.json on every deploy so the app can detect updates */
 const LS="khalid_prod_tracker_v4";
 let store=JSON.parse(localStorage.getItem(LS)||'null')||{};
 store.sessions=store.sessions||[]; store.sheetUrl=store.sheetUrl||"";
@@ -354,7 +354,7 @@ function nextWtype(w){const i=WCYCLE.indexOf(w);return i<0?'Push':WCYCLE[(i+1)%W
 const isBonus=t=>t.kind==='bonus';
 const taskPts=t=>(t.pts||(isBonus(t)?10:0));
 function removeTaskToday(id){const t=store.tasks.find(x=>x.id===id);if(!t)return;
-  if(id==='workout'){try{alert('Workout is a permanent daily task — use “skip today” instead so the Push→Pull→Legs→Run+Abs cycle keeps rolling.');}catch(e){}return;}
+  if(id==='workout'){try{alert('Workout is a permanent daily task — use “skip today” instead. Rename it to whatever you trained that day.');}catch(e){}return;}
   if(!confirm('Remove “'+t.name+'” from today’s list?'))return;
   store.tasks=store.tasks.filter(x=>x.id!==id);store.order=store.order.filter(x=>x!==id);save();renderToday();}
 function toggleKind(id){const t=store.tasks.find(x=>x.id===id);if(!t)return;
@@ -434,8 +434,7 @@ function renderToday(){
     else if(pk)right=`<button class="btn sm" onclick="resumeParked('${pk.id}')">▶ Resume</button>`;
     else if(sk)right=`<span class="status st-skip">skipped</span>`;
     else right=`<button class="btn sm" onclick="startSession('${t.id}')">Start</button> <button class="btn sm ghost" onclick="delegate('${t.id}')" title="Delegate to Claude">🤖</button>`;
-    const _pwt=t.wtype||(t.id==='workout'&&store.lastWtype?nextWtype(store.lastWtype):'');
-    const wbadge=_pwt?`<span class="wbadge" onclick="event.stopPropagation();cycleWtype('${t.id}')" title="tap to set workout type">${esc(_pwt)}${!t.wtype?' ·?':''}</span>`:(t.id==='workout'?`<span class="wbadge" onclick="event.stopPropagation();cycleWtype('${t.id}')" title="tap to set workout type">set type</span>`:'');
+    const wbadge='';/* workout-type cycle removed 2026-06-19 — workout is a plain renamable daily; rename it to whatever you trained */
     const ptsbadge=isBonus(t)?`<span class="ptspill" onclick="event.stopPropagation();cyclePts('${t.id}')" title="tap: 5 / 10 / 20">+${taskPts(t)}</span>`:'';
     const d=document.createElement('div');d.className='card';d.style.cursor='pointer';d.dataset.tid=t.id;
     d.onclick=()=>{if(window._dndMoved){window._dndMoved=false;return;}previewTask(t.id);};
@@ -678,7 +677,7 @@ function renderActiveBanner(){const ab=document.getElementById('active-banner');
   ab.className=h?'':'hidden';ab.innerHTML=h;
   if(active&&!active.end){if(!tick)tick=setInterval(updTimer,1000);updTimer();}}
 
-function finishSession(){if(active.taskId==='workout'){const _t=(store.tasks.find(t=>t.id===active.taskId)||{});const _wt=_t.wtype||(store.lastWtype?nextWtype(store.lastWtype):'');if(_wt){store.lastWtype=_wt;if(!_t.wtype)_t.wtype=_wt;}}
+function finishSession(){
   if(active.pauseStart){active.pausedMs=(active.pausedMs||0)+(Date.now()-new Date(active.pauseStart));active.pauseStart=null;}if(!active._editing&&!active.end)active.end=nowISO();active.durMs=Math.max(0,new Date(active.end)-new Date(active.start)-(active.pausedMs||0));active._finished=true;if(tick)clearInterval(tick);
   const checked=active.micro.filter(m=>m.done).sort((a,b)=>new Date(a.at)-new Date(b.at));let prev=new Date(active.start);
   active.steps=checked.map(m=>{const dur=new Date(m.at)-prev;prev=new Date(m.at);return{name:m.name,durMs:dur};});
