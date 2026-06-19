@@ -3,7 +3,7 @@
   "tasks": [
     {
       "id": "workout",
-      "name": "Workout",
+      "name": "Workout — Leg Day",
       "emoji": "🏋️",
       "kind": "main",
       "pts": 0,
