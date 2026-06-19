@@ -1,168 +1,97 @@
 {
-    "date": "2026-06-15",
-    "tasks": [
-        {
-            "id": "workout",
-            "name": "Pull Day",
-            "emoji": "🏋️",
-            "kind": "main",
-            "pts": 0,
-            "wtype": "Pull Day",
-            "description": "Pull day — back, biceps, rear delts. First thing before production. (Cycle: Push Day → Pull Day → Leg Day → Run + Abs.)",
-            "micro": [
-                "Back / pull",
-                "Biceps",
-                "Rear delts",
-                "Finish / log"
-            ]
-        },
-        {
-            "id": "nanabanana",
-            "name": "NanaBanana Generation",
-            "emoji": "🍌",
-            "kind": "main",
-            "pts": 0,
-            "description": "",
-            "micro": [
-                "Hook image — Video 1",
-                "Hook image — Video 2",
-                "Hook image — Video 3",
-                "Body image — Video 1",
-                "Body image — Video 2",
-                "Body image — Video 3"
-            ]
-        },
-        {
-            "id": "veo31",
-            "name": "VEO 3.1 Clips",
-            "emoji": "🎬",
-            "kind": "main",
-            "pts": 0,
-            "description": "",
-            "micro": [
-                "Clips — Video 1",
-                "Clips — Video 2",
-                "Clips — Video 3"
-            ]
-        },
-        {
-            "id": "capcut",
-            "name": "CapCut Assembly",
-            "emoji": "✂️",
-            "kind": "main",
-            "pts": 0,
-            "description": "Assemble + caption + overlays + CTA, then export the 3 videos.",
-            "micro": [
-                "Assemble Video 1",
-                "Assemble Video 2",
-                "Assemble Video 3"
-            ]
-        },
-        {
-            "id": "research",
-            "name": "Content Research",
-            "emoji": "🔬",
-            "kind": "main",
-            "pts": 0,
-            "description": "Daily research — pull/analyze references, bank ideas + variations.",
-            "micro": [
-                "Pull references",
-                "Analyze",
-                "Bank ideas / variations"
-            ]
-        },
-        {
-            "id": "planvids",
-            "name": "Plan next day's videos",
-            "emoji": "🗓",
-            "kind": "main",
-            "pts": 0,
-            "description": "Plan the 3 videos: hook + full script + reference link. (Simple plan only — production pack is separate.)",
-            "micro": [
-                "Pull Sandcastles Hooks list",
-                "Pick 3",
-                "Variations + scripts",
-                "Save Video Plan doc"
-            ]
-        },
-        {
-            "id": "planday",
-            "name": "Plan next day",
-            "emoji": "🗓",
-            "kind": "main",
-            "pts": 0,
-            "description": "Set up the day before starting production.",
-            "micro": [
-                "Review done / not-done",
-                "Build the day's list",
-                "Push to app + log calendar"
-            ]
-        },
-        {
-            "id": "test-nanaveo",
-            "name": "Stress-test NanaBanana + VEO3 automation",
-            "emoji": "🧪",
-            "kind": "bonus",
-            "pts": 20,
-            "description": "TOP priority. Actually run the nano-veo-engine end-to-end on the 3 videos. See what works, what breaks, harden it for reliable daily use so it can take over the production grind.",
-            "micro": [
-                "Launch engine on Video 1",
-                "Note what breaks",
-                "Fix / harden",
-                "Confirm reliable on all 3"
-            ]
-        },
-        {
-            "id": "test-higgsfield",
-            "name": "Test Higgs Field + Claude",
-            "emoji": "🛰️",
-            "kind": "bonus",
-            "pts": 10,
-            "description": "Parallel track. Test the Higgs Field + Claude direct-API path (Cling 3.0) from the Marcus Builds Brands video as an alternative to the Nano/VEO automation. Needs the paid sub. Compare cost + speed; test both, no replacement decision yet.",
-            "micro": [
-                "Set up sub / access",
-                "Run a test generation",
-                "Compare vs Nano/VEO"
-            ]
-        },
-        {
-            "id": "learn-marcus-hooks",
-            "name": "Marcus Builds Brands + deep-hooks video",
-            "emoji": "📺",
-            "kind": "bonus",
-            "pts": 10,
-            "description": "From the content-research YouTube playlist: digest the latest Marcus Builds Brands videos (frameworks) + the 40-min deep hook-framework video from the viral creator. Extract what's usable into the system.",
-            "micro": [
-                "Digest Marcus videos",
-                "Digest 40-min hooks video",
-                "Extract frameworks"
-            ]
-        },
-        {
-            "id": "capcut-features",
-            "name": "CapCut new features",
-            "emoji": "🎞️",
-            "kind": "bonus",
-            "pts": 5,
-            "description": "Tap into CapCut's newer auto-clip / auto-chop / editing-style features (and check if it can connect to Claude). We haven't used these — could cut assembly time.",
-            "micro": [
-                "Explore auto-edit features",
-                "Check Claude/automation hooks",
-                "Note what speeds up assembly"
-            ]
-        },
-        {
-            "id": "review-notes",
-            "name": "Review past-week notes",
-            "emoji": "🗒️",
-            "kind": "bonus",
-            "pts": 10,
-            "description": "Pull all notes from the past week (Notes tab + next-up + Wispr), mark each done / not-done, and action the golden not-done ones — especially anything tied to the main production tasks.",
-            "micro": [
-                "Pull all notes",
-                "Mark done / not-done",
-                "Action golden not-done"
-            ]
-        }
-    ]
+  "date": "2026-06-20",
+  "tasks": [
+    {
+      "id": "workout",
+      "name": "Workout",
+      "emoji": "🏋️",
+      "kind": "main",
+      "pts": 0,
+      "wtype": "Legs",
+      "description": "",
+      "micro": []
+    },
+    {
+      "id": "nanabanana",
+      "name": "NanaBanana Generation",
+      "emoji": "🍌",
+      "kind": "main",
+      "pts": 0,
+      "description": "",
+      "micro": [
+        "Hook image — Video 1",
+        "Hook image — Video 2",
+        "Hook image — Video 3",
+        "Body image — Video 1",
+        "Body image — Video 2",
+        "Body image — Video 3"
+      ]
+    },
+    {
+      "id": "veo31",
+      "name": "VEO 3.1 Clips",
+      "emoji": "🎬",
+      "kind": "main",
+      "pts": 0,
+      "description": "",
+      "micro": [
+        "Clips — Video 1",
+        "Clips — Video 2",
+        "Clips — Video 3"
+      ]
+    },
+    {
+      "id": "capcut",
+      "name": "CapCut Assembly",
+      "emoji": "✂️",
+      "kind": "main",
+      "pts": 0,
+      "description": "Assemble + caption + overlays + CTA, then export the 3 videos.",
+      "micro": [
+        "Assemble Video 1",
+        "Assemble Video 2",
+        "Assemble Video 3"
+      ]
+    },
+    {
+      "id": "research",
+      "name": "Content Research",
+      "emoji": "🔬",
+      "kind": "main",
+      "pts": 0,
+      "description": "Daily research — pull/analyze references, bank ideas + variations.",
+      "micro": [
+        "Pull references",
+        "Analyze",
+        "Bank ideas / variations"
+      ]
+    },
+    {
+      "id": "planvids",
+      "name": "Plan next day's videos",
+      "emoji": "🗓",
+      "kind": "main",
+      "pts": 0,
+      "description": "Plan the 3 videos: hook + full script + reference link. (Simple plan only — production pack is separate.)",
+      "micro": [
+        "Pull Sandcastles Hooks list",
+        "Pick 3",
+        "Variations + scripts",
+        "Save Video Plan doc"
+      ]
+    },
+    {
+      "id": "planday",
+      "name": "Plan next day",
+      "emoji": "🗓",
+      "kind": "main",
+      "pts": 0,
+      "description": "Set up the day before starting production.",
+      "micro": [
+        "Review done / not-done",
+        "Build the day's list",
+        "Push to app + log calendar"
+      ]
+    }
+  ]
 }
