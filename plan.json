@@ -1,14 +1,14 @@
 {
-  "date": "2026-06-20",
+  "date": "2026-06-22",
   "tasks": [
     {
       "id": "workout",
-      "name": "Workout — Leg Day",
+      "name": "Workout — Push Day",
       "emoji": "🏋️",
       "kind": "main",
       "pts": 0,
-      "wtype": "Leg Day",
-      "description": "",
+      "wtype": "Push",
+      "description": "Push day (Bench → Incline DB → Seated DB press → Weighted dips → Lat raise → Bi curl). Log in Hevy — auto-syncs to the tracker.",
       "micro": []
     },
     {
@@ -17,14 +17,12 @@
       "emoji": "🍌",
       "kind": "main",
       "pts": 0,
-      "description": "",
+      "description": "RESUME the run — V3 body images P2–5 (already pre-loaded in Flow), then any remaining images. Day project = current; Miha + Ulta different-aisle + 'no people'; 2 batches each, fast.",
       "micro": [
-        "Hook image — Video 1",
-        "Hook image — Video 2",
-        "Hook image — Video 3",
-        "Body image — Video 1",
-        "Body image — Video 2",
-        "Body image — Video 3"
+        "Resume V3 body P2 — The Ordinary",
+        "P3 — Anua",
+        "P4 — Murad",
+        "P5 — Picotonic hero"
       ]
     },
     {
@@ -33,11 +31,11 @@
       "emoji": "🎬",
       "kind": "main",
       "pts": 0,
-      "description": "",
+      "description": "Continue the flow: hook clips (Wave 3) then body clips (Wave 4). Save the best hook/body frames in Flow first.",
       "micro": [
-        "Clips — Video 1",
-        "Clips — Video 2",
-        "Clips — Video 3"
+        "Save best hook/body frames",
+        "Hook clips — V1/V2/V3",
+        "Body clips — V1/V2/V3"
       ]
     },
     {
@@ -59,7 +57,7 @@
       "emoji": "🔬",
       "kind": "main",
       "pts": 0,
-      "description": "Daily research — pull/analyze references, bank ideas + variations.",
+      "description": "Daily research — pull/analyze references, bank ideas + variations into the Idea Inbox.",
       "micro": [
         "Pull references",
         "Analyze",
@@ -72,7 +70,7 @@
       "emoji": "🗓",
       "kind": "main",
       "pts": 0,
-      "description": "Plan the 3 videos: hook + full script + reference link. (Simple plan only — production pack is separate.)",
+      "description": "Plan the 3 videos: hook + full script + reference link.",
       "micro": [
         "Pull Sandcastles Hooks list",
         "Pick 3",
@@ -91,6 +89,19 @@
         "Review done / not-done",
         "Build the day's list",
         "Push to app + log calendar"
+      ]
+    },
+    {
+      "id": "ytlearn",
+      "name": "Learn from YouTube playlists",
+      "emoji": "📺",
+      "kind": "bonus",
+      "pts": 10,
+      "description": "Go through the content-research + AI-content YouTube playlists. Khalid flags the good videos → Claude transcribes + extracts the frameworks worth keeping (incl. the Marc/Mark Build Brands digest once he sends the link).",
+      "micro": [
+        "Khalid picks good video links",
+        "Transcribe",
+        "Extract + bank frameworks"
       ]
     }
   ]
