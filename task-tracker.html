@@ -322,7 +322,7 @@ const DEFAULT_TASKS=[
 ];
 const BAKED_SHEET_URL="https://script.google.com/macros/s/AKfycbxfqJIjFZaBLJE4jjV6jJXELsLfvxFYq96l_V4ffCa3woLiBNYnb6qd0GxBu8b9FxjF/exec";
 
-const BUILD="2026-06-21.2";/* bump this + version.json on every deploy so the app can detect updates */
+const BUILD="2026-06-21.3";/* bump this + version.json on every deploy so the app can detect updates */
 const WCYCLE=['Push','Pull','Legs','Run + Abs'];/* training rotation — workout-of-the-day auto-advances by calendar date from store.workoutAnchor */
 const LS="khalid_prod_tracker_v4";
 let store=JSON.parse(localStorage.getItem(LS)||'null')||{};
@@ -781,7 +781,7 @@ function pullClaudeLogs(cb){
 /* merged view: my local sessions + Claude's remote ones (local wins on sid) */
 function allSessionsOn(dk){
   const local=sessionsOn(dk);const lsids=new Set(local.map(s=>s.id));
-  const remote=(store.remoteSessions||[]).filter(s=>s.end&&dayKey(s.start)===dk&&!lsids.has(s.id));
+  const remote=(store.remoteSessions||[]).filter(s=>s.end&&sDay(s)===dk&&!lsids.has(s.id));
   return local.concat(remote);
 }
 
@@ -1023,9 +1023,9 @@ function endEarlyStart(){if(!store.dayOverride)return;
 function fetchPlan(){fetch('plan.json?t='+Date.now()).then(r=>r.ok?r.json():null).then(p=>{
   if(!p||!p.date||!Array.isArray(p.tasks))return;
   window._plan=p;
-  if(p.date===dayKey()&&store.appliedPlanDate!==p.date){
+  if(p.date===curDay()&&store.appliedPlanDate!==p.date){
     /* guard: don't silently wipe a day you've already started — renderToday shows an apply banner instead */
-    const started=store.sessions.some(s=>dayKey(s.start)===dayKey())||(active&&!active.end);
+    const started=store.sessions.some(s=>sDay(s)===curDay())||(active&&!active.end);
     if(!started){adoptPlan(p);try{alert("Today's plan loaded ✓");}catch(e){}}
   }
   renderToday();

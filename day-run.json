@@ -1,0 +1,164 @@
+{
+  "date": "2026-06-21",
+  "videoPlanDoc": "1EnjJfHjSkvxWmAlSo5uFEwk9MaswI64oGoEYvufh4qo",
+  "planDate": "2026-06-20",
+  "videos": [
+    {
+      "n": 1,
+      "angle": "Skip the needle → routine",
+      "hookRef": "daniella_britt 6.0M",
+      "hookLine": "If your worst enemies are smile lines and hollow under-eyes, don't even think about getting filler. Come with me and I'll show you the exact skincare routine I use to look 30 at 50. The last one is the real game changer.",
+      "visual": "two people — speaker flawless skin; second woman shows smile lines + hollow under-eyes. Gesture to her on hook, cut to routine.",
+      "bundle": "dr.melaxin bundle photos",
+      "store": "TBD",
+      "script": "Pink B12 Serum → Picotonic Shot → eye patches → Calcium Intense Cream → multi-balm. Full bundle on TikTok Shop."
+    },
+    {
+      "n": 2,
+      "angle": "Hide your neck",
+      "hookRef": "manuela.gomes165 198K",
+      "hookLine": "If you avoid showing your neck because of loose, crepey skin, you're definitely not alone. Come with me and I'll show you the neck creams people keep buying that barely do anything and the one that actually helps.",
+      "visual": "two people side by side — one smooth firm skin, other showing crepey loose neck.",
+      "bundle": "Calcium Intense Cream",
+      "store": "TBD",
+      "script": "GoPure 6/10, StriVectin 5/10, Crepe Erase 5/10, Medix 4/10, Dr. Melaxin Calcium Intense Cream 10/10."
+    },
+    {
+      "n": 3,
+      "angle": "Dark spots, not aging",
+      "hookRef": "junseoskinhacks 1.77M",
+      "hookLine": "If your dark spots look like this and you're over 40, this is not aging and this is more than fixable. These are the dark spot products people keep buying that do nothing and the one that actually works. Let me show you.",
+      "visual": "two people side by side — one even bright skin, other showing dark spots (camera points on 'looks like this').",
+      "bundle": "Picotonic Shot",
+      "store": "TBD",
+      "script": "Good Molecules 6/10, The Ordinary 5/10, Anua 6/10, Murad 6/10, Dr. Melaxin Picotonic Shot 10/10."
+    }
+  ],
+  "assets": [
+    {
+      "video": 1,
+      "wave": 1,
+      "type": "hook_image",
+      "status": "done",
+      "project": "V1 — 2026-06-21",
+      "prompt": "Remake this image exactly.",
+      "frame": "Reference Images/Hook/hook-images/Ulta — undereye symptoms left, flawless right, pointing.jpeg",
+      "model": ""
+    },
+    {
+      "video": 2,
+      "wave": 1,
+      "type": "hook_image",
+      "status": "active",
+      "project": "V1 — 2026-06-21",
+      "prompt": "Recreate this image exactly, but make the woman on the left tilt her head all the way up so only her neck is showing, with loose, crepey, sagging skin and deep wrinkles on her neck, and the woman on the right is pointing at the loose crepey skin on the left woman's neck.",
+      "frame": "Reference Images/Hook/hook-images/Ulta — undereye symptoms left, flawless right, pointing.jpeg",
+      "model": ""
+    },
+    {
+      "video": 3,
+      "wave": 1,
+      "type": "hook_image",
+      "status": "active",
+      "project": "V1 — 2026-06-21",
+      "prompt": "Recreate exactly, left woman white with dark spots/hyperpigmentation, right woman points at spots.",
+      "frame": "Reference Images/Hook/hook-images/Ulta — undereye symptoms left, flawless right, pointing.jpeg",
+      "model": ""
+    },
+    {
+      "video": 1,
+      "wave": 2,
+      "type": "body_image",
+      "status": "done",
+      "project": "V1 — 2026-06-21",
+      "prompt": "[body method] Make her hold the product (2nd image) in a completely different skincare aisle in Ulta Beauty that has this product.",
+      "frame": "Reference Images/Body/body-images/Ulta employee Miha selfie (Dr Melaxin poster).jpeg; products: dr.melaxin bundle photos 1-5 (1=eye patches), one at a time, 1 batch each",
+      "model": "",
+      "note": "V1 body DONE: products 1-5 (eye patches/multi balm/picotonic/Pink B12/Calcium Intense Cream), Miha + each product, Ulta different-aisle, no people. ~2 batches each."
+    },
+    {
+      "video": 2,
+      "wave": 2,
+      "type": "body_image",
+      "status": "done",
+      "project": "V1 — 2026-06-21 (UUID 195429e8; renamed 'V2 — 2026-06-21' in Flow)",
+      "prompt": "",
+      "frame": "",
+      "model": "",
+      "note": "V2 DONE: GoPure(1b)/StriVectin(2b)/Crepe Erase(2b)/Medix(2b)/Calcium Intense Cream hero(2b, via unique-named copy after 5.png attach ambiguity). Miha+Ulta different-aisle+no people."
+    },
+    {
+      "video": 3,
+      "wave": 2,
+      "type": "body_image",
+      "status": "partial",
+      "project": "existing:V1 — 2026-06-21",
+      "prompt": "",
+      "frame": "",
+      "model": "",
+      "note": "THROTTLED 2026-06-21 ~10:30. Done: P1 Good Molecules (2 batches). REMAINING: P2 The Ordinary, P3 Anua, P4 Murad, P5 Picotonic Shot hero (unique-named copy). Resume when Flow lockout clears (few hrs). Miha+Ulta different-aisle+no people, normal prompt, 2 batches each, fast."
+    },
+    {
+      "video": 1,
+      "wave": 3,
+      "type": "hook_clip",
+      "status": "pending",
+      "project": "existing:V1 — 2026-06-21",
+      "prompt": "",
+      "frame": "",
+      "model": ""
+    },
+    {
+      "video": 2,
+      "wave": 3,
+      "type": "hook_clip",
+      "status": "pending",
+      "project": "existing:V1 — 2026-06-21",
+      "prompt": "",
+      "frame": "",
+      "model": ""
+    },
+    {
+      "video": 3,
+      "wave": 3,
+      "type": "hook_clip",
+      "status": "pending",
+      "project": "existing:V1 — 2026-06-21",
+      "prompt": "",
+      "frame": "",
+      "model": ""
+    },
+    {
+      "video": 1,
+      "wave": 4,
+      "type": "body_clip",
+      "status": "pending",
+      "project": "existing:V1 — 2026-06-21",
+      "prompt": "",
+      "frame": "",
+      "model": ""
+    },
+    {
+      "video": 2,
+      "wave": 4,
+      "type": "body_clip",
+      "status": "pending",
+      "project": "existing:V1 — 2026-06-21",
+      "prompt": "",
+      "frame": "",
+      "model": ""
+    },
+    {
+      "video": 3,
+      "wave": 4,
+      "type": "body_clip",
+      "status": "pending",
+      "project": "existing:V1 — 2026-06-21",
+      "prompt": "",
+      "frame": "",
+      "model": ""
+    }
+  ],
+  "updatedAt": "2026-06-21T10:30:00Z",
+  "throttledAt": "2026-06-21T10:30:00Z"
+}
