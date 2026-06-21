@@ -322,13 +322,15 @@ const DEFAULT_TASKS=[
 ];
 const BAKED_SHEET_URL="https://script.google.com/macros/s/AKfycbxfqJIjFZaBLJE4jjV6jJXELsLfvxFYq96l_V4ffCa3woLiBNYnb6qd0GxBu8b9FxjF/exec";
 
-const BUILD="2026-06-19.2";/* bump this + version.json on every deploy so the app can detect updates */
+const BUILD="2026-06-21.1";/* bump this + version.json on every deploy so the app can detect updates */
+const WCYCLE=['Push','Pull','Legs','Run + Abs'];/* training rotation — workout-of-the-day auto-advances by calendar date from store.workoutAnchor */
 const LS="khalid_prod_tracker_v4";
 let store=JSON.parse(localStorage.getItem(LS)||'null')||{};
 store.sessions=store.sessions||[]; store.sheetUrl=store.sheetUrl||"";
 store.tasks=store.tasks||JSON.parse(JSON.stringify(DEFAULT_TASKS));
 store.order=store.order||store.tasks.map(t=>t.id);
 store.skips=store.skips||{}; if(store.fx===undefined)store.fx=true; store.appliedPlanDate=store.appliedPlanDate||""; if(store.testMode===undefined)store.testMode=false;
+if(!store.workoutAnchor)store.workoutAnchor={date:'2026-06-21',idx:3};/* 2026-06-21 = Run + Abs (idx 3 in WCYCLE) */ store.workoutSetDay=store.workoutSetDay||'';
 let active=null,tick=null,_sessAvg=0; const RING_C=2*Math.PI*86;
 
 const save=()=>{localStorage.setItem(LS,JSON.stringify(store));scheduleBackup();};
@@ -363,6 +365,11 @@ function cyclePts(id){const t=store.tasks.find(x=>x.id===id);if(!t||!isBonus(t))
 let logDate=curDay(),notesDate=curDay(),peekDate=addDayKey(curDay(),1);
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function addDayKey(dk,n){const d=new Date(dk+'T00:00');d.setDate(d.getDate()+n);return dayKey(d);}
+/* workout-of-the-day: compute the rotation label for a day from the fixed anchor, so it auto-advances every calendar date and never drifts (a one-off rename only affects that day). */
+function workoutFor(dk){const a=store.workoutAnchor;const base=new Date(a.date+'T00:00'),d=new Date((dk||curDay())+'T00:00');const diff=Math.round((d-base)/864e5);return WCYCLE[((a.idx+diff)%WCYCLE.length+WCYCLE.length)%WCYCLE.length];}
+function syncWorkoutName(){const w=store.tasks.find(t=>t.id==='workout');if(!w)return;const today=curDay();if(store.workoutSetDay!==today||w.name==='Workout'){w.name=workoutFor(today);store.workoutSetDay=today;save();}}
+/* correction: if the rotation is ever off (e.g. an extra rest day), tap the 🔁 to nudge today to the next workout and re-anchor from here. */
+function bumpWorkoutCycle(){const today=curDay();const nx=(WCYCLE.indexOf(workoutFor(today))+1)%WCYCLE.length;store.workoutAnchor={date:today,idx:nx};const w=store.tasks.find(t=>t.id==='workout');if(w)w.name=WCYCLE[nx];store.workoutSetDay=today;save();renderToday();}
 function dayLabelOf(dk){const t=dayKey();if(dk===t)return'Today';if(dk===addDayKey(t,-1))return'Yesterday';if(dk===addDayKey(t,1))return'Tomorrow';return new Date(dk+'T00:00').toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'});}
 function sessionsOn(dk){return store.sessions.filter(s=>s.end&&sDay(s)===dk);}
 store.bg=store.bg||[]; store.remoteSessions=store.remoteSessions||[]; store.carryover=store.carryover||[]; if(store.autoCarry===undefined)store.autoCarry=false; store.lastDay=store.lastDay||dayKey(); store.outbox=store.outbox||[]; store.lastSync=store.lastSync||0; store.notes=store.notes||{}; if(store.peekOpen===undefined)store.peekOpen=false; store.parked=store.parked||[]; store.parkedTs=store.parkedTs||0; if(store.cloudSync===undefined)store.cloudSync=false; store.deletedSids=store.deletedSids||[];
@@ -416,6 +423,7 @@ function streakCount(){const days=new Set(store.sessions.filter(s=>s.end&&s.kind
   let n=0,d=new Date();while(days.has(dayKey(d))){n++;d.setDate(d.getDate()-1);}return n;}
 
 function renderToday(){
+  syncWorkoutName();
   document.getElementById('today-date').textContent=new Date().toLocaleDateString([],{weekday:'long',month:'long',day:'numeric'});
   document.getElementById('streak').textContent=streakCount();
   const tasks=orderedTasks();
@@ -430,7 +438,7 @@ function renderToday(){
     else if(pk)right=`<button class="btn sm" onclick="resumeParked('${pk.id}')">▶ Resume</button>`;
     else if(sk)right=`<span class="status st-skip">skipped</span>`;
     else right=`<button class="btn sm" onclick="startSession('${t.id}')">Start</button> <button class="btn sm ghost" onclick="delegate('${t.id}')" title="Delegate to Claude">🤖</button>`;
-    const wbadge='';/* workout-type cycle removed 2026-06-19 — workout is a plain renamable daily; rename it to whatever you trained */
+    const wbadge=(t.id==='workout')?` <span class="ptspill" onclick="event.stopPropagation();bumpWorkoutCycle()" title="auto-advances daily — tap if the rotation is off">🔁</span>`:'';/* workout-of-the-day auto-advances (Push→Pull→Legs→Run+Abs); tap 🔁 to re-sync if a rest day shifts it */
     const ptsbadge=isBonus(t)?`<span class="ptspill" onclick="event.stopPropagation();cyclePts('${t.id}')" title="tap: 5 / 10 / 20">+${taskPts(t)}</span>`:'';
     const d=document.createElement('div');d.className='card';d.style.cursor='pointer';d.dataset.tid=t.id;
     d.onclick=()=>{if(window._dndMoved){window._dndMoved=false;return;}previewTask(t.id);};
