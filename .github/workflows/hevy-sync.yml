@@ -1,7 +1,9 @@
 name: Hevy to Tracker sync
 on:
   schedule:
-    - cron: '*/5 * * * *'   # every 5 min (public repo = free), Mac-independent
+    # GitHub silently throttles/drops very-frequent crons on low-activity repos —
+    # the old '*/5' never fired a single scheduled run. '*/15' is a reliable interval. Mac-independent.
+    - cron: '*/15 * * * *'   # every 15 min (public repo = free)
   workflow_dispatch:          # manual "Run workflow" button + gh workflow run
 jobs:
   sync:
