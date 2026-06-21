@@ -322,7 +322,7 @@ const DEFAULT_TASKS=[
 ];
 const BAKED_SHEET_URL="https://script.google.com/macros/s/AKfycbxfqJIjFZaBLJE4jjV6jJXELsLfvxFYq96l_V4ffCa3woLiBNYnb6qd0GxBu8b9FxjF/exec";
 
-const BUILD="2026-06-21.1";/* bump this + version.json on every deploy so the app can detect updates */
+const BUILD="2026-06-21.2";/* bump this + version.json on every deploy so the app can detect updates */
 const WCYCLE=['Push','Pull','Legs','Run + Abs'];/* training rotation — workout-of-the-day auto-advances by calendar date from store.workoutAnchor */
 const LS="khalid_prod_tracker_v4";
 let store=JSON.parse(localStorage.getItem(LS)||'null')||{};
@@ -415,7 +415,9 @@ function blip(){if(!store.fx)return;try{navigator.vibrate&&navigator.vibrate(12)
 /* today helpers */
 function doneSessionToday(id){const _t=store.tasks.find(x=>x.id===id),_nm=_t&&_t.name;
   return store.sessions.find(s=>s.taskId===id&&s.end&&sDay(s)===curDay())
-    ||(_nm&&(store.remoteSessions||[]).find(s=>s.end&&sDay(s)===curDay()&&(s.taskName===_nm||s.title===_nm)))||null;}
+    ||(_nm&&(store.remoteSessions||[]).find(s=>s.end&&sDay(s)===curDay()&&(s.taskName===_nm||s.title===_nm)))
+    /* workout task auto-completes from ANY Hevy-logged session today (sid 'hv…' or "Workout —" title) regardless of the rotation name, so finishing in Hevy ticks it off here */
+    ||(id==='workout'&&(store.remoteSessions||[]).find(s=>s.end&&sDay(s)===curDay()&&(String(s.id).slice(0,2)==='hv'||/^Workout\b/i.test(s.title||s.taskName||''))))||null;}
 function isSkipped(id){return (store.skips[curDay()]||[]).includes(id);}
 function toggleSkip(id){const k=curDay();store.skips[k]=store.skips[k]||[];const i=store.skips[k].indexOf(id);
   if(i>=0)store.skips[k].splice(i,1);else store.skips[k].push(id);save();renderToday();}
