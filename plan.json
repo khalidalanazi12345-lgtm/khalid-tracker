@@ -1,41 +1,18 @@
 {
-  "date": "2026-06-22",
+  "date": "2026-06-23",
   "tasks": [
-    {
-      "id": "workout",
-      "name": "Workout — Push Day",
-      "emoji": "🏋️",
-      "kind": "main",
-      "pts": 0,
-      "wtype": "Push",
-      "description": "Push day (Bench → Incline DB → Seated DB press → Weighted dips → Lat raise → Bi curl). Log in Hevy — auto-syncs to the tracker.",
-      "micro": []
-    },
-    {
-      "id": "nanabanana",
-      "name": "NanaBanana Generation",
-      "emoji": "🍌",
-      "kind": "main",
-      "pts": 0,
-      "description": "RESUME the run — V3 body images P2–5 (already pre-loaded in Flow), then any remaining images. Day project = current; Miha + Ulta different-aisle + 'no people'; 2 batches each, fast.",
-      "micro": [
-        "Resume V3 body P2 — The Ordinary",
-        "P3 — Anua",
-        "P4 — Murad",
-        "P5 — Picotonic hero"
-      ]
-    },
     {
       "id": "veo31",
       "name": "VEO 3.1 Clips",
       "emoji": "🎬",
       "kind": "main",
       "pts": 0,
-      "description": "Continue the flow: hook clips (Wave 3) then body clips (Wave 4). Save the best hook/body frames in Flow first.",
+      "description": "Finish the body clips (V1/V2/V3) manually — hook clips were done today. Save the best body frames in Flow first, then generate one at a time with self-check.",
       "micro": [
-        "Save best hook/body frames",
-        "Hook clips — V1/V2/V3",
-        "Body clips — V1/V2/V3"
+        "Save best body frames",
+        "Body clip — V1",
+        "Body clip — V2",
+        "Body clip — V3"
       ]
     },
     {
@@ -44,11 +21,12 @@
       "emoji": "✂️",
       "kind": "main",
       "pts": 0,
-      "description": "Assemble + caption + overlays + CTA, then export the 3 videos.",
+      "description": "Assemble + caption + overlays + CTA, then export and post the 3 videos.",
       "micro": [
         "Assemble Video 1",
         "Assemble Video 2",
-        "Assemble Video 3"
+        "Assemble Video 3",
+        "Export + post"
       ]
     },
     {
@@ -92,16 +70,28 @@
       ]
     },
     {
-      "id": "ytlearn",
-      "name": "Learn from YouTube playlists",
-      "emoji": "📺",
+      "id": "workout",
+      "name": "Workout — Pull Day",
+      "emoji": "🏋️",
+      "kind": "main",
+      "pts": 0,
+      "wtype": "Pull Day",
+      "description": "Pull day (back, biceps, rear delts) — LAST, after all the production mains. Log in Hevy — auto-syncs to the tracker.",
+      "micro": []
+    },
+    {
+      "id": "nanoveoaudit",
+      "name": "Nano-VO Engine Audit",
+      "emoji": "🔍",
       "kind": "bonus",
-      "pts": 10,
-      "description": "Go through the content-research + AI-content YouTube playlists. Khalid flags the good videos → Claude transcribes + extracts the frameworks worth keeping (incl. the Marc/Mark Build Brands digest once he sends the link).",
+      "pts": 20,
+      "description": "Full granular audit of the ENTIRE nano-veo engine. Read every related file (every .js, .json, .sh, the skill MDs, ui-map, SPEC, .env.example). Write out in plain English, step by step / click by click, exactly what it does at each stage: hook images, body images, hook clips, body clips, and the favorites download/sort. Grill Khalid stage-by-stage (hook clips, body clips especially — they're the weak spot and need more context to be reliable every time; images + favorites-sort are already good). He proofreads the writeup; fix every wrong/misinterpreted step the correct way, then cement it into an SOP file the engine reads BEFORE every generation so the same mistake never repeats. Foundation-first so the clips run reliably. Source notes: tracker 'Notes For The Day' 6/22 (3:31 PM + 4:47 PM VEO 3.1 Clips entries).",
       "micro": [
-        "Khalid picks good video links",
-        "Transcribe",
-        "Extract + bank frameworks"
+        "Read all engine files + skills",
+        "Write step-by-step / click-by-click map",
+        "Grill Khalid per stage (focus: clips)",
+        "Fix wrong steps the correct way",
+        "Cement the SOP file the engine reads"
       ]
     }
   ]
