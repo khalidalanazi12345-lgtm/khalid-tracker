@@ -2,32 +2,29 @@
   "date": "2026-06-23",
   "tasks": [
     {
-      "id": "veo31",
-      "name": "VEO 3.1 Clips",
-      "emoji": "🎬",
-      "kind": "main",
-      "pts": 0,
-      "description": "Finish the body clips (V1/V2/V3) manually — hook clips were done today. Save the best body frames in Flow first, then generate one at a time with self-check.",
-      "micro": [
-        "Save best body frames",
-        "Body clip — V1",
-        "Body clip — V2",
-        "Body clip — V3"
-      ]
-    },
-    {
       "id": "capcut",
       "name": "CapCut Assembly",
       "emoji": "✂️",
       "kind": "main",
       "pts": 0,
-      "description": "Assemble + caption + overlays + CTA, then export and post the 3 videos.",
+      "description": "The clips are done. Download all the favorites (hook clips + body clips), then CapCut-assemble each video one by one — caption + overlays + CTA — and schedule + post all 3. (These are the videos that were meant to post today.)",
       "micro": [
+        "Download all favorites (hook + body clips)",
         "Assemble Video 1",
         "Assemble Video 2",
         "Assemble Video 3",
-        "Export + post"
+        "Schedule + post"
       ]
+    },
+    {
+      "id": "workout",
+      "name": "Workout — Leg Day",
+      "emoji": "🏋️",
+      "kind": "main",
+      "pts": 0,
+      "wtype": "Leg Day",
+      "description": "Leg day — go to the gym after CapCut + posting, then come home for the rest. Log in Hevy — auto-syncs to the tracker.",
+      "micro": []
     },
     {
       "id": "research",
@@ -48,7 +45,7 @@
       "emoji": "🗓",
       "kind": "main",
       "pts": 0,
-      "description": "Plan the 3 videos: hook + full script + reference link.",
+      "description": "Plan the 3 videos: hook + full script + reference link. (Extra draft videos are already planned ahead.)",
       "micro": [
         "Pull Sandcastles Hooks list",
         "Pick 3",
@@ -57,35 +54,12 @@
       ]
     },
     {
-      "id": "planday",
-      "name": "Plan next day",
-      "emoji": "🗓",
-      "kind": "main",
-      "pts": 0,
-      "description": "Set up the day before starting production.",
-      "micro": [
-        "Review done / not-done",
-        "Build the day's list",
-        "Push to app + log calendar"
-      ]
-    },
-    {
-      "id": "workout",
-      "name": "Workout — Pull Day",
-      "emoji": "🏋️",
-      "kind": "main",
-      "pts": 0,
-      "wtype": "Pull Day",
-      "description": "Pull day (back, biceps, rear delts) — LAST, after all the production mains. Log in Hevy — auto-syncs to the tracker.",
-      "micro": []
-    },
-    {
       "id": "nanoveoaudit",
       "name": "Nano-VO Engine Audit",
       "emoji": "🔍",
       "kind": "bonus",
       "pts": 20,
-      "description": "Full granular audit of the ENTIRE nano-veo engine. Read every related file (every .js, .json, .sh, the skill MDs, ui-map, SPEC, .env.example). Write out in plain English, step by step / click by click, exactly what it does at each stage: hook images, body images, hook clips, body clips, and the favorites download/sort. Grill Khalid stage-by-stage (hook clips, body clips especially — they're the weak spot and need more context to be reliable every time; images + favorites-sort are already good). He proofreads the writeup; fix every wrong/misinterpreted step the correct way, then cement it into an SOP file the engine reads BEFORE every generation so the same mistake never repeats. Foundation-first so the clips run reliably. Source notes: tracker 'Notes For The Day' 6/22 (3:31 PM + 4:47 PM VEO 3.1 Clips entries).",
+      "description": "Full granular audit of the ENTIRE nano-veo engine (do it last, after CapCut/posting, gym, research, planning). Read every related file (every .js, .json, .sh, the skill MDs, ui-map, SPEC, .env.example). Write out in plain English, step by step / click by click, exactly what it does at each stage: hook images, body images, hook clips, body clips, and the favorites download/sort. Grill Khalid stage-by-stage (hook clips, body clips especially — they're the weak spot and need more context to be reliable every time; images + favorites-sort are already good). He proofreads the writeup; fix every wrong/misinterpreted step the correct way, then cement it into an SOP file the engine reads BEFORE every generation so the same mistake never repeats. Foundation-first so the clips run reliably. Source notes: tracker 'Notes For The Day' 6/22 (3:31 PM + 4:47 PM VEO 3.1 Clips entries).",
       "micro": [
         "Read all engine files + skills",
         "Write step-by-step / click-by-click map",
