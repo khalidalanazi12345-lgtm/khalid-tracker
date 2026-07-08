@@ -36,6 +36,13 @@ HVOUT=$(bash "$HOME/.hevy-autolog/hevy-autolog.sh" 2>>"$LOG")
 NLOG=$(printf '%s' "$HVOUT" | grep -c '^logged ')
 if [ "$NLOG" -gt 0 ]; then HEALS+=("hevy: caught+logged $NLOG workout(s) the 30-min job had missed"); note "HEALED hevy outcome ($NLOG logged)"; else note "OK hevy outcome (tracker current)"; fi
 
+# 3c) Daily Brain capture job loaded — SELF-HEAL if dead (the raw-capture layer feeds the shared brain)
+if launchctl list 2>/dev/null | grep -q com.khalid.daily-brain; then note "OK daily-brain launchd loaded"; else
+  if launchctl load "$HOME/Library/LaunchAgents/com.khalid.daily-brain.plist" 2>/dev/null; then
+    HEALS+=("reloaded dead daily-brain launchd job"); note "HEALED reloaded daily-brain launchd"
+  else FAILS+=("daily-brain launchd dead, reload failed"); fi
+fi
+
 # 4) Cloud GitHub Action last run succeeded (best-effort: skip silently if gh/keyring unavailable)
 GH="$HOME/.local/bin/gh"; command -v gh >/dev/null 2>&1 && GH=gh
 CONC=$("$GH" run list --workflow=hevy-sync.yml -R khalidalanazi12345-lgtm/khalid-tracker -L 1 --json conclusion --jq '.[0].conclusion' 2>/dev/null)
@@ -63,6 +70,7 @@ backup_repo(){
 }
 backup_repo "$HOME/nano-veo-engine" "nano-veo-engine"
 backup_repo "$HOME/Desktop/Khalid-OS" "Khalid-OS"
+backup_repo "$HOME/loom-engine" "loom-engine"
 
 # 6) brain-sync staleness — failure marker present, or sync log stale (>24h = sync may be dead)
 BSDIR="$HOME/Desktop/skills"
