@@ -1,42 +1,45 @@
 {
-  "date": "2026-06-23",
+  "date": "2026-07-09",
   "tasks": [
     {
-      "id": "capcut",
-      "name": "CapCut Assembly",
-      "emoji": "✂️",
+      "id": "nanabanana",
+      "name": "NanaBanana Generation",
+      "emoji": "🍌",
       "kind": "main",
       "pts": 0,
-      "description": "The clips are done. Download all the favorites (hook clips + body clips), then CapCut-assemble each video one by one — caption + overlays + CTA — and schedule + post all 3. (These are the videos that were meant to post today.)",
+      "description": "Start the day here. Generate the hook + body images for all 3 videos — one project, one product, one generation at a time.",
       "micro": [
-        "Download all favorites (hook + body clips)",
-        "Assemble Video 1",
-        "Assemble Video 2",
-        "Assemble Video 3",
-        "Schedule + post"
+        "Hook images",
+        "Body images",
+        "Favorite the keepers"
       ]
     },
     {
-      "id": "workout",
-      "name": "Workout — Leg Day",
-      "emoji": "🏋️",
+      "id": "veo",
+      "name": "VEO 3.1 Clips",
+      "emoji": "🎬",
       "kind": "main",
       "pts": 0,
-      "wtype": "Leg Day",
-      "description": "Leg day — go to the gym after CapCut + posting, then come home for the rest. Log in Hevy — auto-syncs to the tracker.",
-      "micro": []
+      "description": "Animate the favorited frames into clips — hook clips + body clips, one at a time, self-check each generation.",
+      "micro": [
+        "Hook clips",
+        "Body clips",
+        "Favorite the keepers"
+      ]
     },
     {
-      "id": "research",
-      "name": "Content Research",
-      "emoji": "🔬",
+      "id": "capcut",
+      "name": "CapCut Assembly + Post",
+      "emoji": "✂️",
       "kind": "main",
       "pts": 0,
-      "description": "Daily research — pull/analyze references, bank ideas + variations into the Idea Inbox.",
+      "description": "Download all favorites (hook + body clips), assemble each video — captions + overlays + CTA — then post. Production is DONE after this.",
       "micro": [
-        "Pull references",
-        "Analyze",
-        "Bank ideas / variations"
+        "Download all favorites",
+        "Assemble Video 1",
+        "Assemble Video 2",
+        "Assemble Video 3",
+        "Post all 3"
       ]
     },
     {
@@ -45,27 +48,58 @@
       "emoji": "🗓",
       "kind": "main",
       "pts": 0,
-      "description": "Plan the 3 videos: hook + full script + reference link. (Extra draft videos are already planned ahead.)",
+      "description": "Pick the 3 hooks + scripts for the next day. NOTE: no content research needed today — the idea bank is already full from Wed 7/8. Light scrolling only if you want.",
       "micro": [
-        "Pull Sandcastles Hooks list",
+        "Surface hook candidates",
         "Pick 3",
         "Variations + scripts",
         "Save Video Plan doc"
       ]
     },
     {
-      "id": "nanoveoaudit",
-      "name": "Nano-VO Engine Audit",
-      "emoji": "🔍",
+      "id": "planday",
+      "name": "Plan next day",
+      "emoji": "🗓",
+      "kind": "main",
+      "pts": 0,
+      "description": "Set the next day's plan — tracker app + Day Planning doc.",
+      "micro": []
+    },
+    {
+      "id": "workout",
+      "name": "Workout — Leg Day",
+      "emoji": "🏋️",
+      "kind": "main",
+      "pts": 0,
+      "wtype": "Leg Day",
+      "description": "Squats + deadlifts. Go to the gym AFTER all the work above is done, then come home for the bonus tasks. Log in Hevy — auto-syncs to the tracker.",
+      "micro": []
+    },
+    {
+      "id": "aios",
+      "name": "Build Your Own AI OS",
+      "emoji": "🧠",
       "kind": "bonus",
       "pts": 20,
-      "description": "Full granular audit of the ENTIRE nano-veo engine (do it last, after CapCut/posting, gym, research, planning). Read every related file (every .js, .json, .sh, the skill MDs, ui-map, SPEC, .env.example). Write out in plain English, step by step / click by click, exactly what it does at each stage: hook images, body images, hook clips, body clips, and the favorites download/sort. Grill Khalid stage-by-stage (hook clips, body clips especially — they're the weak spot and need more context to be reliable every time; images + favorites-sort are already good). He proofreads the writeup; fix every wrong/misinterpreted step the correct way, then cement it into an SOP file the engine reads BEFORE every generation so the same mistake never repeats. Foundation-first so the clips run reliably. Source notes: tracker 'Notes For The Day' 6/22 (3:31 PM + 4:47 PM VEO 3.1 Clips entries).",
+      "description": "Learning block, at home after the gym. Go to the community/school course on Make + AI automation and watch the 'Build Your Own AI OS' course.",
       "micro": [
-        "Read all engine files + skills",
-        "Write step-by-step / click-by-click map",
-        "Grill Khalid per stage (focus: clips)",
-        "Fix wrong steps the correct way",
-        "Cement the SOP file the engine reads"
+        "Open the course",
+        "Watch it",
+        "Note what's worth stealing for our system"
+      ]
+    },
+    {
+      "id": "kallaway",
+      "name": "Kallaway Video — skills download",
+      "emoji": "🎥",
+      "kind": "bonus",
+      "pts": 20,
+      "description": "The LAST video in the content-research YouTube playlist, by Kallaway (the creator of Sandcastles) — so it's the best of both worlds: he teaches the workflows AND gives downloadable Claude skills. Download all the skills + hook-variation tools and teach them to Claude Code so they're usable in daily ideation/research. Then chase the bonus nuggets at the end: software that auto-edits videos (Remotion etc.) — check whether any of it can connect to Claude (MCP / custom connector) so the daily edit stops being manual CapCut work. Big unlock if yes; fine if no.",
+      "micro": [
+        "Watch the Kallaway video",
+        "Download the Claude skills + hook tools",
+        "Teach them to Claude Code",
+        "Chase the auto-editing-software nugget"
       ]
     }
   ]
