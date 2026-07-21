@@ -257,7 +257,8 @@
   </div>
   <div class="card">
     <div style="font-weight:700">Backup &amp; restore</div>
-    <div class="hint" style="margin:6px 0 10px">Your data lives only in this browser. Export a backup regularly — clearing the cache or moving to a new URL wipes it otherwise.</div>
+    <div class="hint" style="margin:6px 0 10px">Auto-backs-up to the cloud on every change. Still export a file now and then as a belt-and-braces copy.</div>
+    <button class="btn sm ghost" id="undo-reset-btn" style="display:none;margin-bottom:8px;width:100%;background:#3a2a00;border-color:#7a5c00" onclick="undoReset()">↩ Undo reset</button>
     <button class="btn sm" onclick="exportBackup()">⬇ Export backup (JSON)</button>
     <label class="btn sm ghost" style="margin-top:8px;display:inline-block">⬆ Restore from file<input type="file" accept="application/json,.json" onchange="importBackup(this.files[0])" style="display:none"></label>
     <button class="btn sm ghost" style="margin-top:8px" onclick="restoreFromCloud()">☁️ Restore from cloud backup</button>
@@ -322,7 +323,7 @@ const DEFAULT_TASKS=[
 ];
 const BAKED_SHEET_URL="https://script.google.com/macros/s/AKfycbxfqJIjFZaBLJE4jjV6jJXELsLfvxFYq96l_V4ffCa3woLiBNYnb6qd0GxBu8b9FxjF/exec";
 
-const BUILD="2026-06-21.3";/* bump this + version.json on every deploy so the app can detect updates */
+const BUILD="2026-07-21.1";/* bump this + version.json on every deploy so the app can detect updates */
 const WCYCLE=['Push','Pull','Legs','Run + Abs'];/* training rotation — workout-of-the-day auto-advances by calendar date from store.workoutAnchor */
 const LS="khalid_prod_tracker_v4";
 let store=JSON.parse(localStorage.getItem(LS)||'null')||{};
@@ -373,6 +374,8 @@ function bumpWorkoutCycle(){const today=curDay();const nx=(WCYCLE.indexOf(workou
 function dayLabelOf(dk){const t=dayKey();if(dk===t)return'Today';if(dk===addDayKey(t,-1))return'Yesterday';if(dk===addDayKey(t,1))return'Tomorrow';return new Date(dk+'T00:00').toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'});}
 function sessionsOn(dk){return store.sessions.filter(s=>s.end&&sDay(s)===dk);}
 store.bg=store.bg||[]; store.remoteSessions=store.remoteSessions||[]; store.carryover=store.carryover||[]; if(store.autoCarry===undefined)store.autoCarry=false; store.lastDay=store.lastDay||dayKey(); store.outbox=store.outbox||[]; store.lastSync=store.lastSync||0; store.notes=store.notes||{}; if(store.peekOpen===undefined)store.peekOpen=false; store.parked=store.parked||[]; store.parkedTs=store.parkedTs||0; if(store.cloudSync===undefined)store.cloudSync=false; store.deletedSids=store.deletedSids||[];
+/* one-time migration (2026-07-21): turn ON cross-device sync so phone+laptop+cloud always agree — a reset on one device used to leave the others (and the cloud) unprotected. Cloud auto-backup now runs regardless of this toggle (see pushBackup). */
+if(!store.syncMigrated0721){store.cloudSync=true;store.syncMigrated0721=true;}
 let bgTick=null,brTick=null;
 /* move ONE task to tomorrow (queue it for the next day + take it off today) */
 function moveToTomorrow(id){const t=store.tasks.find(x=>x.id===id);if(!t)return;
@@ -578,6 +581,9 @@ function refreshOnReturn(){if(checkRollover())renderToday();/* app reopened acro
   if(active&&!active._editing&&!active.end){if(!tick)tick=setInterval(updTimer,1000);updTimer();}
   if(store.bg&&store.bg.length){if(!bgTick)bgTick=setInterval(updBg,1000);updBg();}
   if(store.cloudSync&&Date.now()-_statePullAt>8000)pullParked();/* pick up a pause made on another device */
+  /* re-pull what Claude/Hevy logged while the app was backgrounded, and redraw Today when it lands —
+     otherwise a workout finished away from the app only appears after a manual reload. */
+  if(Date.now()-_claudePullAt>20000)pullClaudeLogs(()=>{if(!document.getElementById('view-today').classList.contains('hidden'))renderToday();});
   checkVersion();}
 /* in-app update detector: a cache-busted fetch of version.json; if the deployed build differs
    from this loaded build, show a one-tap update banner (beats fighting iOS home-screen caching) */
@@ -910,9 +916,9 @@ function buildBackup(){const s=Object.assign({},store);delete s.outbox;
     while(blob.length>45000&&s.sessions.length){s.sessions.shift();blob=JSON.stringify(s);}}
   return s;}
 let _backupTimer=null;
-function scheduleBackup(){if(!store.cloudSync||store.testMode)return;
+function scheduleBackup(){if(store.testMode)return;/* auto-backup ALWAYS runs now (not gated on sync) so no device is ever left without a safety net */
   if(_backupTimer)clearTimeout(_backupTimer);_backupTimer=setTimeout(pushBackup,4000);}
-function pushBackup(){if(!store.cloudSync||store.testMode)return;
+function pushBackup(){if(store.testMode)return;
   _lastBackupAt=Date.now();rawSend({type:'state',key:'store',data:buildBackup(),_ts:_lastBackupAt});
   const e=document.getElementById('cloud-backup-state');if(e)e.innerHTML='<span class="ok">☁️ Backed up '+tOnly(_lastBackupAt)+'</span>';}
 function pullBackup(force){const url=store.sheetUrl||BAKED_SHEET_URL;if(!url)return;
@@ -999,8 +1005,29 @@ function delTask(id){const t=ti2task(id);if(confirm(`Delete task “${t.name}”
 function addStep(id){const s=prompt("New step:");if(!s)return;ti2task(id).micro.push(s.trim());save();renderTaskEditor();}
 function delStep(id,si){ti2task(id).micro.splice(si,1);save();renderTaskEditor();}
 function restoreDefaults(){let added=0;DEFAULT_TASKS.forEach(dt=>{if(!store.tasks.some(t=>t.name===dt.name)){store.tasks.push(JSON.parse(JSON.stringify(dt)));store.order.push(dt.id);added++;}});save();renderTaskEditor();alert(added?("Restored "+added+" default task(s)."):"All defaults already present.");}
-function resetToDefault(){if(!confirm("Reset today's tasks to the default set? (clears any plan applied from your to-do)"))return;
-  store.tasks=JSON.parse(JSON.stringify(DEFAULT_TASKS));store.order=store.tasks.map(t=>t.id);store.appliedPlanDate=dayKey();save();renderToday();}
+function resetToDefault(){
+  const cur=store.tasks||[],bn=cur.filter(isBonus).length,tot=cur.length;
+  const extras=cur.filter(t=>!DEFAULT_TASKS.some(d=>d.id===t.id)).map(t=>(t.emoji||'•')+' '+t.name);
+  let msg="⚠ Reset ALL "+tot+" of today's tasks back to the default set?";
+  if(bn)msg+="\n\nThis REMOVES your "+bn+" bonus task"+(bn>1?"s":"")+".";
+  if(extras.length)msg+="\n"+(bn?"And these":"This removes these")+" custom task"+(extras.length>1?"s":"")+":\n• "+extras.join("\n• ");
+  msg+="\n\n(A one-tap Undo is saved automatically.) Continue?";
+  if(!confirm(msg))return;
+  /* stash the pre-reset tasks LOCALLY so a reset is always undoable on THIS device — even offline / phone */
+  try{localStorage.setItem(LS+'_undo',JSON.stringify({tasks:cur,order:store.order,ts:Date.now()}));}catch(e){}
+  store.tasks=JSON.parse(JSON.stringify(DEFAULT_TASKS));store.order=store.tasks.map(t=>t.id);store.appliedPlanDate=dayKey();save();renderToday();renderUndoReset();
+  try{alert("Reset done. Changed your mind? Tap “↩ Undo reset” in Settings → Backup & restore.");}catch(e){}}
+function undoReset(){
+  let u;try{u=JSON.parse(localStorage.getItem(LS+'_undo')||'null');}catch(e){}
+  if(!u||!u.tasks){alert("Nothing to undo.");return;}
+  if(!confirm("Restore the "+u.tasks.length+" task"+(u.tasks.length>1?"s":"")+" from before your last reset ("+new Date(u.ts).toLocaleString()+")?\n\nThis replaces your current task list."))return;
+  store.tasks=u.tasks;store.order=(u.order&&u.order.length)?u.order:u.tasks.map(t=>t.id);save();
+  localStorage.removeItem(LS+'_undo');renderToday();try{renderTaskEditor();}catch(e){}renderUndoReset();
+  try{alert("Restored ✓");}catch(e){}}
+function renderUndoReset(){const b=document.getElementById('undo-reset-btn');if(!b)return;
+  let u;try{u=JSON.parse(localStorage.getItem(LS+'_undo')||'null');}catch(e){}
+  if(u&&u.tasks){b.style.display='inline-block';b.textContent="↩ Undo reset · "+u.tasks.length+" tasks from "+new Date(u.ts).toLocaleDateString();}
+  else b.style.display='none';}
 function adoptPlan(p){
   store.tasks=p.tasks.map(t=>({id:(t.id||slug(t.name)),name:t.name,emoji:t.emoji||'•',description:t.description||'',micro:t.micro||[],kind:t.kind||'main',pts:t.pts||0,wtype:t.wtype||''}));
   (store.carryover||[]).forEach(c=>{if(!store.tasks.some(t=>t.name===c.name)){store.tasks.push({id:c.id||slug(c.name),name:c.name,emoji:c.emoji||'•',description:c.description||'',micro:c.micro||[],kind:c.kind||'main',pts:c.pts||0,wtype:c.wtype||''});}});
@@ -1150,10 +1177,12 @@ function closePreview(){document.getElementById('preview-modal').classList.add('
 /* nav */
 function go(v){['today','session','summary','review','history','settings','notes'].forEach(x=>document.getElementById('view-'+x).classList.toggle('hidden',x!==v));
   ['today','notes','review','history','settings'].forEach(x=>document.getElementById('nav-'+x).classList.toggle('active',x===v));
-  if(v==='today'||v==='history'){if(Date.now()-_claudePullAt>20000)pullClaudeLogs(()=>{if(v==='today')renderClaudeStrip();else renderHistory();});}
+  /* the pull is async — re-render the WHOLE Today view when it lands, not just the strip.
+     Rendering only the strip left the ring + task cards showing the PREVIOUS pull's data. */
+  if(v==='today'||v==='history'){if(Date.now()-_claudePullAt>20000)pullClaudeLogs(()=>{if(v==='today')renderToday();else renderHistory();});}
   if(v==='today'&&store.cloudSync&&Date.now()-_statePullAt>8000)pullParked();
   if(v==='today')renderToday(); if(v==='review')renderReview(); if(v==='history')renderHistory(); if(v==='notes')renderNotes();
-  if(v==='settings'){document.getElementById('sheet-url').value=store.sheetUrl||'';renderTaskEditor();renderFxBtn();renderTestBtn();renderCarryBtn();renderCloudBtn();renderSyncState();pullClaudeLogs(()=>renderSyncState());}
+  if(v==='settings'){document.getElementById('sheet-url').value=store.sheetUrl||'';renderTaskEditor();renderFxBtn();renderTestBtn();renderCarryBtn();renderCloudBtn();renderSyncState();renderUndoReset();pullClaudeLogs(()=>renderSyncState());}
   window.scrollTo(0,0);}
 /* bring a live session back if iOS reloaded the app while it was backgrounded */
 function restoreActive(){if(!store.active)return;active=store.active;
@@ -1164,7 +1193,7 @@ function restoreActive(){if(!store.active)return;active=store.active;
   else{tick=setInterval(updTimer,1000);updTimer();}}
 try{checkRollover();resendOutbox();save();setTestBar();restoreActive();}catch(e){console.warn('boot recover',e);active=null;try{delete store.active;save();}catch(_){}}
 if(!active)renderToday();fetchPlan();try{pullParked();startStatePoll();checkVersion();}catch(e){}
-try{pullClaudeLogs(()=>{renderClaudeStrip();if(!document.getElementById('view-history').classList.contains('hidden'))renderHistory();});}catch(e){}
+try{pullClaudeLogs(()=>{if(!document.getElementById('view-today').classList.contains('hidden'))renderToday();if(!document.getElementById('view-history').classList.contains('hidden'))renderHistory();});}catch(e){}
 </script>
 </body>
 </html>
