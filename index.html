@@ -150,7 +150,7 @@
   <div class="card" style="display:flex;gap:10px;flex-wrap:wrap">
     <button class="btn sm ghost" style="flex:1" onclick="addTask()">+ Add task</button>
     <button class="btn sm ghost" style="flex:1" onclick="startBreak()">☕ Start break</button>
-    <button class="btn sm ghost" style="flex:1" onclick="resetToDefault()">Reset to default</button>
+    <button class="btn sm ghost" style="flex:1" onclick="resetToDefault()">Reset main tasks</button>
     <button class="btn sm ghost" style="flex:1 1 100%" onclick="carryOver()">↪ Carry over undone → tomorrow</button>
   </div>
 </div>
@@ -245,6 +245,7 @@
     <div id="task-editor"></div>
     <button class="btn sm" onclick="addTask()">+ Add task</button>
     <button class="btn sm ghost" style="margin-top:8px" onclick="restoreDefaults()">Restore default tasks</button>
+    <button class="btn sm ghost" style="margin-top:8px;color:#ff9f9f" onclick="resetAllTasks()">⟲ Reset ALL tasks (incl. bonus)</button>
   </div>
   <div class="card">
     <div style="font-weight:700">Google Sheet sync</div>
@@ -323,7 +324,7 @@ const DEFAULT_TASKS=[
 ];
 const BAKED_SHEET_URL="https://script.google.com/macros/s/AKfycbxfqJIjFZaBLJE4jjV6jJXELsLfvxFYq96l_V4ffCa3woLiBNYnb6qd0GxBu8b9FxjF/exec";
 
-const BUILD="2026-07-21.1";/* bump this + version.json on every deploy so the app can detect updates */
+const BUILD="2026-08-02.1";/* bump this + version.json on every deploy so the app can detect updates */
 const WCYCLE=['Push','Pull','Legs','Run + Abs'];/* training rotation — workout-of-the-day auto-advances by calendar date from store.workoutAnchor */
 const LS="khalid_prod_tracker_v4";
 let store=JSON.parse(localStorage.getItem(LS)||'null')||{};
@@ -1005,7 +1006,28 @@ function delTask(id){const t=ti2task(id);if(confirm(`Delete task “${t.name}”
 function addStep(id){const s=prompt("New step:");if(!s)return;ti2task(id).micro.push(s.trim());save();renderTaskEditor();}
 function delStep(id,si){ti2task(id).micro.splice(si,1);save();renderTaskEditor();}
 function restoreDefaults(){let added=0;DEFAULT_TASKS.forEach(dt=>{if(!store.tasks.some(t=>t.name===dt.name)){store.tasks.push(JSON.parse(JSON.stringify(dt)));store.order.push(dt.id);added++;}});save();renderTaskEditor();alert(added?("Restored "+added+" default task(s)."):"All defaults already present.");}
+/* Reset to default = MAIN tasks only. Your bonus tasks are KEPT (the whole point — no more retyping them).
+   For a full wipe incl. bonus, use resetAllTasks() in Settings → Manage tasks. Both stash a one-tap Undo. */
 function resetToDefault(){
+  const cur=store.tasks||[];
+  const bonus=orderedTasks().filter(isBonus);
+  const mains=cur.filter(t=>!isBonus(t));
+  const extras=mains.filter(t=>!DEFAULT_TASKS.some(d=>d.id===t.id)).map(t=>(t.emoji||'•')+' '+t.name);
+  let msg="Reset your "+mains.length+" main task"+(mains.length===1?"":"s")+" back to the default set?";
+  if(bonus.length)msg+="\n\n✅ Your "+bonus.length+" bonus task"+(bonus.length>1?"s":"")+" will be KEPT.";
+  if(extras.length)msg+="\n\nThis removes these custom main task"+(extras.length>1?"s":"")+":\n• "+extras.join("\n• ");
+  msg+="\n\n(A one-tap Undo is saved. To wipe EVERYTHING incl. bonus, use Settings → Manage tasks → Reset ALL.)\n\nContinue?";
+  if(!confirm(msg))return;
+  /* stash the FULL pre-reset state LOCALLY so a reset is always undoable on THIS device — even offline / phone */
+  try{localStorage.setItem(LS+'_undo',JSON.stringify({tasks:cur,order:store.order,ts:Date.now()}));}catch(e){}
+  /* keep bonus tasks; give any that collide with a default id a fresh id so both survive */
+  const usedIds=new Set(DEFAULT_TASKS.map(d=>d.id));
+  const kept=JSON.parse(JSON.stringify(bonus)).map(t=>{if(usedIds.has(t.id))t.id=slug(t.name)+'-b'+usedIds.size;usedIds.add(t.id);return t;});
+  store.tasks=JSON.parse(JSON.stringify(DEFAULT_TASKS)).concat(kept);
+  store.order=store.tasks.map(t=>t.id);store.appliedPlanDate=dayKey();save();renderToday();renderUndoReset();try{renderTaskEditor();}catch(e){}
+  try{alert("Main tasks reset ✓"+(kept.length?"  ·  "+kept.length+" bonus task"+(kept.length>1?"s":"")+" kept.":"")+"\n\nChanged your mind? Settings → Backup & restore → ↩ Undo reset.");}catch(e){}}
+/* Full wipe: mains AND bonus back to the bare default set. Lives in Settings; still one-tap-undoable. */
+function resetAllTasks(){
   const cur=store.tasks||[],bn=cur.filter(isBonus).length,tot=cur.length;
   const extras=cur.filter(t=>!DEFAULT_TASKS.some(d=>d.id===t.id)).map(t=>(t.emoji||'•')+' '+t.name);
   let msg="⚠ Reset ALL "+tot+" of today's tasks back to the default set?";
@@ -1013,10 +1035,9 @@ function resetToDefault(){
   if(extras.length)msg+="\n"+(bn?"And these":"This removes these")+" custom task"+(extras.length>1?"s":"")+":\n• "+extras.join("\n• ");
   msg+="\n\n(A one-tap Undo is saved automatically.) Continue?";
   if(!confirm(msg))return;
-  /* stash the pre-reset tasks LOCALLY so a reset is always undoable on THIS device — even offline / phone */
   try{localStorage.setItem(LS+'_undo',JSON.stringify({tasks:cur,order:store.order,ts:Date.now()}));}catch(e){}
-  store.tasks=JSON.parse(JSON.stringify(DEFAULT_TASKS));store.order=store.tasks.map(t=>t.id);store.appliedPlanDate=dayKey();save();renderToday();renderUndoReset();
-  try{alert("Reset done. Changed your mind? Tap “↩ Undo reset” in Settings → Backup & restore.");}catch(e){}}
+  store.tasks=JSON.parse(JSON.stringify(DEFAULT_TASKS));store.order=store.tasks.map(t=>t.id);store.appliedPlanDate=dayKey();save();renderToday();renderUndoReset();try{renderTaskEditor();}catch(e){}
+  try{alert("All tasks reset (incl. bonus). Changed your mind? Settings → Backup & restore → ↩ Undo reset.");}catch(e){}}
 function undoReset(){
   let u;try{u=JSON.parse(localStorage.getItem(LS+'_undo')||'null');}catch(e){}
   if(!u||!u.tasks){alert("Nothing to undo.");return;}
