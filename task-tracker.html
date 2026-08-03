@@ -324,7 +324,7 @@ const DEFAULT_TASKS=[
 ];
 const BAKED_SHEET_URL="https://script.google.com/macros/s/AKfycbxfqJIjFZaBLJE4jjV6jJXELsLfvxFYq96l_V4ffCa3woLiBNYnb6qd0GxBu8b9FxjF/exec";
 
-const BUILD="2026-08-02.1";/* bump this + version.json on every deploy so the app can detect updates */
+const BUILD="2026-08-02.2";/* bump this + version.json on every deploy so the app can detect updates */
 const WCYCLE=['Push','Pull','Legs','Run + Abs'];/* training rotation — workout-of-the-day auto-advances by calendar date from store.workoutAnchor */
 const LS="khalid_prod_tracker_v4";
 let store=JSON.parse(localStorage.getItem(LS)||'null')||{};
@@ -336,6 +336,20 @@ if(!store.workoutAnchor)store.workoutAnchor={date:'2026-06-21',idx:3};/* 2026-06
 let active=null,tick=null,_sessAvg=0; const RING_C=2*Math.PI*86;
 
 const save=()=>{localStorage.setItem(LS,JSON.stringify(store));scheduleBackup();};
+/* self-heal: collapse any duplicate-id tasks (keep the first) + clean store.order to match.
+   Guards the "two Workouts, can't remove either" bug that arose when Restore-defaults matched by
+   name while the workout task is renamed daily (Push/Pull/…), re-adding a 2nd id="workout". */
+(function dedupeTasks(){
+  if(!Array.isArray(store.tasks))return;let changed=false;
+  const seen=new Set(),out=[];
+  for(const t of store.tasks){if(t&&t.id&&!seen.has(t.id)){seen.add(t.id);out.push(t);}else{changed=true;}}
+  if(changed)store.tasks=out;
+  const ids=new Set(store.tasks.map(t=>t.id)),oseen=new Set(),order=[];
+  for(const id of (store.order||[])){if(ids.has(id)&&!oseen.has(id)){oseen.add(id);order.push(id);}}
+  for(const t of store.tasks){if(!oseen.has(t.id)){oseen.add(t.id);order.push(t.id);}}
+  if(order.length!==(store.order||[]).length||order.some((id,i)=>id!==store.order[i])){store.order=order;changed=true;}
+  if(changed)save();
+})();
 function persistActive(){if(active)store.active=active;else delete store.active;save();}
 const nowISO=()=>new Date().toISOString();
 const two=n=>String(n).padStart(2,'0');
@@ -1005,7 +1019,9 @@ function renameTask(id){const t=ti2task(id);const n=prompt("Type the NEW task na
 function delTask(id){const t=ti2task(id);if(confirm(`Delete task “${t.name}”?`)){store.tasks=store.tasks.filter(x=>x.id!==id);store.order=store.order.filter(x=>x!==id);save();renderTaskEditor();}}
 function addStep(id){const s=prompt("New step:");if(!s)return;ti2task(id).micro.push(s.trim());save();renderTaskEditor();}
 function delStep(id,si){ti2task(id).micro.splice(si,1);save();renderTaskEditor();}
-function restoreDefaults(){let added=0;DEFAULT_TASKS.forEach(dt=>{if(!store.tasks.some(t=>t.name===dt.name)){store.tasks.push(JSON.parse(JSON.stringify(dt)));store.order.push(dt.id);added++;}});save();renderTaskEditor();alert(added?("Restored "+added+" default task(s)."):"All defaults already present.");}
+/* match by ID, not name — the workout task is renamed daily (Push/Pull/…), so a name check
+   would think it's missing and re-add a duplicate id="workout" (the "two Workouts" bug). */
+function restoreDefaults(){let added=0;DEFAULT_TASKS.forEach(dt=>{if(!store.tasks.some(t=>t.id===dt.id)){store.tasks.push(JSON.parse(JSON.stringify(dt)));store.order.push(dt.id);added++;}});save();renderTaskEditor();alert(added?("Restored "+added+" default task(s)."):"All defaults already present.");}
 /* Reset to default = MAIN tasks only. Your bonus tasks are KEPT (the whole point — no more retyping them).
    For a full wipe incl. bonus, use resetAllTasks() in Settings → Manage tasks. Both stash a one-tap Undo. */
 function resetToDefault(){
