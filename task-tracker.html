@@ -324,7 +324,7 @@ const DEFAULT_TASKS=[
 ];
 const BAKED_SHEET_URL="https://script.google.com/macros/s/AKfycbxfqJIjFZaBLJE4jjV6jJXELsLfvxFYq96l_V4ffCa3woLiBNYnb6qd0GxBu8b9FxjF/exec";
 
-const BUILD="2026-08-02.2";/* bump this + version.json on every deploy so the app can detect updates */
+const BUILD="2026-08-03.1";/* bump this + version.json on every deploy so the app can detect updates */
 const WCYCLE=['Push','Pull','Legs','Run + Abs'];/* training rotation — workout-of-the-day auto-advances by calendar date from store.workoutAnchor */
 const LS="khalid_prod_tracker_v4";
 let store=JSON.parse(localStorage.getItem(LS)||'null')||{};
@@ -787,6 +787,9 @@ function pullClaudeLogs(cb){
       store.remoteSessions=rows.filter(r=>r.sid&&!localSids.has(r.sid)&&(store.deletedSids||[]).indexOf(r.sid)<0).map(r=>({
         id:r.sid,taskId:r.taskId||'',taskName:r.task||r.title||'task',title:r.title||r.task||'task',
         owner:r.owner||'Claude',start:r.startISO,end:r.endISO,
+        /* attribute to the day you were ACTUALLY training (session midpoint), not the start clock —
+           a workout begun 11:58pm & finished 1:27am belongs to the finish day, not the day before. */
+        logDay:r.logDay||((r.startISO&&r.endISO)?dayKey(new Date((new Date(r.startISO).getTime()+new Date(r.endISO).getTime())/2)):(r.startISO?dayKey(r.startISO):undefined)),
         durMs:(r.startISO&&r.endISO)?(new Date(r.endISO)-new Date(r.startISO)):0,
         micro:[],output:r.output||'',reflection:r.reflection||'',_remote:true,colorId:r.colorId||'5'}));
       store.lastClaudePull=Date.now();save();
