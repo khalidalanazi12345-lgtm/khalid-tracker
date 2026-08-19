@@ -267,6 +267,12 @@
     <div class="synced" id="backup-state"></div>
     <div class="synced" id="cloud-backup-state"></div>
   </div>
+  <div class="card">
+    <div style="font-weight:700">🏋️ Workout auto-tick — diagnostics</div>
+    <div class="hint" style="margin:6px 0 10px">Hevy → your Sheet → this app. If today's workout isn't ticked, this says which link is broken.</div>
+    <button class="btn sm" onclick="forceHevyRefresh()">↻ Force refresh from Sheet</button>
+    <div class="synced" id="hevy-diag" style="margin-top:8px"></div>
+  </div>
   <div class="card"><div class="row"><span class="hint">Sound + haptic on check</span>
     <button class="tinybtn" id="fx-toggle" onclick="toggleFx()"></button></div></div>
   <div class="card"><div class="row"><span class="hint">🧪 Test mode — sandbox: run sessions normally, but nothing is saved or written to calendar/sheet</span>
@@ -324,7 +330,7 @@ const DEFAULT_TASKS=[
 ];
 const BAKED_SHEET_URL="https://script.google.com/macros/s/AKfycbxfqJIjFZaBLJE4jjV6jJXELsLfvxFYq96l_V4ffCa3woLiBNYnb6qd0GxBu8b9FxjF/exec";
 
-const BUILD="2026-08-19.1";/* bump this + version.json on every deploy so the app can detect updates */
+const BUILD="2026-08-19.3";/* bump this + version.json on every deploy so the app can detect updates */
 const WCYCLE=['Push','Pull','Legs','Run + Abs'];/* training rotation — workout-of-the-day auto-advances by calendar date from store.workoutAnchor */
 const LS="khalid_prod_tracker_v4";
 let store=JSON.parse(localStorage.getItem(LS)||'null')||{};
@@ -431,11 +437,21 @@ function blip(){if(!store.fx)return;try{navigator.vibrate&&navigator.vibrate(12)
     o.connect(g);g.connect(actx.destination);o.start();o.stop(actx.currentTime+.19);}catch(e){}}
 
 /* today helpers */
+/* Is THIS the workout task? Used to decide whether a Hevy-logged session ticks it off. Deliberately
+   NOT just id==='workout': a renamed/re-added/plan-adopted task can end up with a slug id ('pull',
+   'legs'…) and then the Hevy tick silently never fires. Match on id OR the 🏋️ emoji OR a rotation name. */
+function isWorkoutTask(t){if(!t)return false;
+  if(t.id==='workout')return true;
+  if((t.emoji||'').indexOf('🏋')>=0)return true;
+  const n=String(t.name||'').trim().toLowerCase();
+  return n==='workout'||WCYCLE.some(w=>w.toLowerCase()===n)||/^(push|pull|legs?|run ?\+ ?abs)( day)?$/.test(n);}
+/* a Hevy-written session: sid stamped 'hv…' by the autolog, or a "Workout — …" title */
+function isHevySession(s){return String(s.id).slice(0,2)==='hv'||/^Workout\b/i.test(s.title||s.taskName||'');}
 function doneSessionToday(id){const _t=store.tasks.find(x=>x.id===id),_nm=_t&&_t.name;
   return store.sessions.find(s=>s.taskId===id&&s.end&&sDay(s)===curDay())
     ||(_nm&&(store.remoteSessions||[]).find(s=>s.end&&sDay(s)===curDay()&&(s.taskName===_nm||s.title===_nm)))
     /* workout task auto-completes from ANY Hevy-logged session today (sid 'hv…' or "Workout —" title) regardless of the rotation name, so finishing in Hevy ticks it off here */
-    ||(id==='workout'&&(store.remoteSessions||[]).find(s=>s.end&&sDay(s)===curDay()&&(String(s.id).slice(0,2)==='hv'||/^Workout\b/i.test(s.title||s.taskName||''))))||null;}
+    ||(isWorkoutTask(_t)&&(store.remoteSessions||[]).find(s=>s.end&&sDay(s)===curDay()&&isHevySession(s)))||null;}
 function isSkipped(id){return (store.skips[curDay()]||[]).includes(id);}
 function toggleSkip(id){const k=curDay();store.skips[k]=store.skips[k]||[];const i=store.skips[k].indexOf(id);
   if(i>=0)store.skips[k].splice(i,1);else store.skips[k].push(id);save();renderToday();}
@@ -774,7 +790,7 @@ function goldIf(s){return s.kind==='bonus'?'5':(s.kind==='break'?'8':'10');}
 function isGold(s){return s.colorId==='5'||s.kind==='bonus';}
 /* live-pull what Claude Code logged this week (JSONP — cross-origin GET to Apps Script).
    Keeps ONLY remote rows not already logged on THIS device, so the app never double-counts. */
-let _claudePullAt=0;
+let _claudePullAt=0,_pullSeq=0;
 /* RETRY (2026-08-19): one aborted/timed-out JSONP used to leave store.remoteSessions frozen on an
    OLDER day's rows — and since that array is persisted, a Hevy workout already sitting in the Sheet
    never ticked the workout task off. Failure was silent: no retry, no signal. Now: up to 3 attempts
@@ -782,11 +798,17 @@ let _claudePullAt=0;
 function pullClaudeLogs(cb,attempt){
   const url=store.sheetUrl||BAKED_SHEET_URL;if(!url){if(cb)cb();return;}
   const tryN=attempt||1;
-  const fn='__claudeCb'+Date.now()+'x'+tryN;let done=false,got=false;
+  const fn='__claudeCb'+Date.now()+'x'+tryN+'x'+(_pullSeq++);let done=false,got=false;/* seq: two pulls in the same ms shared a callback name and killed each other's script node */
   function finish(){if(done)return;done=true;delete window[fn];const s2=document.getElementById(fn);if(s2)s2.remove();
     if(!got&&tryN<3){setTimeout(function(){pullClaudeLogs(cb,tryN+1);},2000*tryN);return;}/* nothing landed → back off and try again rather than keep stale rows */
     if(cb)cb();}
   window[fn]=function(data){
+    /* THE ONE THAT ACTUALLY BIT (2026-08-19): Apps Script intermittently answers {ok:false,error:…}
+       with NO sessions array. The old code did `(data&&data.sessions)||[]` — so a hiccup read as
+       "zero rows" and WIPED store.remoteSessions, which is persisted to localStorage. Every Hevy
+       workout and every Claude-logged session silently un-ticked and stayed that way. Only a
+       well-formed success may replace the cache; anything else is a failure and gets retried. */
+    if(!data||data.ok===false||!Array.isArray(data.sessions)){store.lastPullErr=Date.now();try{save();}catch(_){}finish();return;}
     got=true;
     try{
       const rows=(data&&data.sessions)||[];
@@ -971,6 +993,26 @@ function pullBackup(force){const url=store.sheetUrl||BAKED_SHEET_URL;if(!url)ret
   sc.onerror=function(){clean();if(force)alert('Could not reach the cloud backup.');};
   document.body.appendChild(sc);setTimeout(clean,12000);}
 function restoreFromCloud(){if(!store.cloudSync){alert('Turn on ☁️ Cross-device sync first.');return;}pullBackup(true);}
+/* WHY ISN'T MY WORKOUT TICKED? (2026-08-19) — walks the exact chain doneSessionToday() walks and
+   names the first broken link, instead of the app just silently showing "Start". */
+function renderHevyDiag(){const e=document.getElementById('hevy-diag');if(!e)return;
+  const L=[],ok=s=>'<span class="ok">✓ '+s+'</span>',bad=s=>'<span class="off">✗ '+s+'</span>';
+  L.push('Build '+BUILD+' · today = '+curDay()+(store.dayOverride?' (early-started day!)':'')+' · tz '+(Intl.DateTimeFormat().resolvedOptions().timeZone||'?'));
+  const wt=store.tasks.find(t=>isWorkoutTask(t));
+  L.push(wt?ok('workout task found: "'+esc(wt.name)+'" (id '+esc(wt.id)+')'):bad('NO workout task in your list — add one'));
+  L.push(store.lastPullOk?ok('sheet feed last landed '+tOnly(store.lastPullOk)):bad('sheet feed has NEVER landed on this device'));
+  if(store.lastPullErr)L.push('<span class="off">last feed error '+tOnly(store.lastPullErr)+' (retried, cache kept)</span>');
+  const hv=(store.remoteSessions||[]).filter(isHevySession);
+  L.push(hv.length?ok(hv.length+' Hevy workout(s) in the feed'):bad('no Hevy workouts in the feed at all'));
+  hv.slice(-4).forEach(s=>{const m=sDay(s)===curDay();
+    L.push('&nbsp;&nbsp;• '+esc(s.title||s.taskName)+' → counts toward '+sDay(s)+(m?' <span class="ok">(= today)</span>':' <span class="off">(≠ today '+curDay()+')</span>'));});
+  const dz=(store.deletedSids||[]).filter(x=>String(x).slice(0,2)==='hv');
+  if(dz.length)L.push(bad(dz.length+' Hevy session(s) you deleted are being filtered out'));
+  const dn=wt?doneSessionToday(wt.id):null;
+  L.push('<b>'+(dn?ok('RESULT: ticked done — '+mins(dn.durMs)):bad('RESULT: not ticked'))+'</b>');
+  e.innerHTML=L.join('<br>');}
+function forceHevyRefresh(){const e=document.getElementById('hevy-diag');if(e)e.innerHTML='<span class="off">refreshing…</span>';
+  _claudePullAt=0;pullClaudeLogs(function(){renderHevyDiag();renderSyncState();try{renderToday();}catch(_){}});}
 
 /* settings / editor */
 function renderSyncState(){const e=document.getElementById('sync-state2');if(!e)return;
@@ -1235,7 +1277,7 @@ function go(v){['today','session','summary','review','history','settings','notes
   if(v==='today'||v==='history'){if(Date.now()-_claudePullAt>20000)pullClaudeLogs(()=>{if(v==='today')renderToday();else renderHistory();});}
   if(v==='today'&&store.cloudSync&&Date.now()-_statePullAt>8000)pullParked();
   if(v==='today')renderToday(); if(v==='review')renderReview(); if(v==='history')renderHistory(); if(v==='notes')renderNotes();
-  if(v==='settings'){document.getElementById('sheet-url').value=store.sheetUrl||'';renderTaskEditor();renderFxBtn();renderTestBtn();renderCarryBtn();renderCloudBtn();renderSyncState();renderUndoReset();pullClaudeLogs(()=>renderSyncState());}
+  if(v==='settings'){document.getElementById('sheet-url').value=store.sheetUrl||'';renderTaskEditor();renderFxBtn();renderTestBtn();renderCarryBtn();renderCloudBtn();renderSyncState();renderUndoReset();renderHevyDiag();pullClaudeLogs(()=>{renderSyncState();renderHevyDiag();});}
   window.scrollTo(0,0);}
 /* bring a live session back if iOS reloaded the app while it was backgrounded */
 function restoreActive(){if(!store.active)return;active=store.active;
