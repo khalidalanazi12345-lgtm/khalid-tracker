@@ -324,7 +324,7 @@ const DEFAULT_TASKS=[
 ];
 const BAKED_SHEET_URL="https://script.google.com/macros/s/AKfycbxfqJIjFZaBLJE4jjV6jJXELsLfvxFYq96l_V4ffCa3woLiBNYnb6qd0GxBu8b9FxjF/exec";
 
-const BUILD="2026-08-03.1";/* bump this + version.json on every deploy so the app can detect updates */
+const BUILD="2026-08-19.1";/* bump this + version.json on every deploy so the app can detect updates */
 const WCYCLE=['Push','Pull','Legs','Run + Abs'];/* training rotation — workout-of-the-day auto-advances by calendar date from store.workoutAnchor */
 const LS="khalid_prod_tracker_v4";
 let store=JSON.parse(localStorage.getItem(LS)||'null')||{};
@@ -775,11 +775,19 @@ function isGold(s){return s.colorId==='5'||s.kind==='bonus';}
 /* live-pull what Claude Code logged this week (JSONP — cross-origin GET to Apps Script).
    Keeps ONLY remote rows not already logged on THIS device, so the app never double-counts. */
 let _claudePullAt=0;
-function pullClaudeLogs(cb){
-  const url=store.sheetUrl||BAKED_SHEET_URL;if(!url)return;
-  const fn='__claudeCb'+Date.now();let done=false;
-  function finish(){if(done)return;done=true;delete window[fn];const s2=document.getElementById(fn);if(s2)s2.remove();if(cb)cb();}
+/* RETRY (2026-08-19): one aborted/timed-out JSONP used to leave store.remoteSessions frozen on an
+   OLDER day's rows — and since that array is persisted, a Hevy workout already sitting in the Sheet
+   never ticked the workout task off. Failure was silent: no retry, no signal. Now: up to 3 attempts
+   with backoff, and store.lastPullOk stamps when the feed last ACTUALLY landed. */
+function pullClaudeLogs(cb,attempt){
+  const url=store.sheetUrl||BAKED_SHEET_URL;if(!url){if(cb)cb();return;}
+  const tryN=attempt||1;
+  const fn='__claudeCb'+Date.now()+'x'+tryN;let done=false,got=false;
+  function finish(){if(done)return;done=true;delete window[fn];const s2=document.getElementById(fn);if(s2)s2.remove();
+    if(!got&&tryN<3){setTimeout(function(){pullClaudeLogs(cb,tryN+1);},2000*tryN);return;}/* nothing landed → back off and try again rather than keep stale rows */
+    if(cb)cb();}
   window[fn]=function(data){
+    got=true;
     try{
       const rows=(data&&data.sessions)||[];
       store.syncedSids=rows.map(r=>String(r.sid||'')).filter(Boolean);/* read-back: which sessions are confirmed in the Sheet */
@@ -792,7 +800,7 @@ function pullClaudeLogs(cb){
         logDay:r.logDay||((r.startISO&&r.endISO)?dayKey(new Date((new Date(r.startISO).getTime()+new Date(r.endISO).getTime())/2)):(r.startISO?dayKey(r.startISO):undefined)),
         durMs:(r.startISO&&r.endISO)?(new Date(r.endISO)-new Date(r.startISO)):0,
         micro:[],output:r.output||'',reflection:r.reflection||'',_remote:true,colorId:r.colorId||'5'}));
-      store.lastClaudePull=Date.now();save();
+      store.lastClaudePull=Date.now();store.lastPullOk=Date.now();save();
     }catch(e){}
     finish();
   };
@@ -866,7 +874,9 @@ function editSession(sid){const s=store.sessions.find(x=>x.id===sid)||(store.rem
 }
 /* undo an accidental "done" — removes today's logged session for a task (+ its calendar/sheet entry) so it's start-able again */
 function undoDone(id){const todays=store.sessions.filter(x=>x.taskId===id&&x.end&&sDay(x)===curDay());
-  if(!todays.length)return;const s=todays[todays.length-1];const nm=(store.tasks.find(t=>t.id===id)||{}).name||'this task';
+  /* the ✓ can come from a Claude/Hevy-logged (REMOTE) session — undoing that used to silently do nothing */
+  if(!todays.length){const r=doneSessionToday(id);if(r&&r._remote)deleteRemote(r.id);return;}
+  const s=todays[todays.length-1];const nm=(store.tasks.find(t=>t.id===id)||{}).name||'this task';
   const synced=!store.testMode&&!s._test;
   if(!confirm('Mark “'+nm+'” as not done?\n\nRemoves today’s logged session'+(synced?' (and its calendar + sheet entry).':'.')))return;
   const i=store.sessions.findIndex(x=>x.id===s.id);if(i>=0)store.sessions.splice(i,1);save();
@@ -967,7 +977,10 @@ function renderSyncState(){const e=document.getElementById('sync-state2');if(!e)
   const recent=store.sessions.filter(s=>s.end&&(Date.now()-new Date(s.start))<8*864e5);
   const ok=recent.filter(s=>(store.syncedSids||[]).indexOf(String(s.id))>=0).length;
   const vTxt=recent.length?(' · <span class="'+(ok===recent.length?'ok':'off')+'">✓ '+ok+'/'+recent.length+' recent verified in Sheet</span>'):'';
-  e.innerHTML=(store.lastSync?('<span class="ok">Last sync: '+tOnly(store.lastSync)+'</span>'+(store.outbox.length?(' · '+store.outbox.length+' queued (auto-resends)'):'')):'<span class="off">nothing sent yet</span>')+vTxt+'<br><span class="off">Build '+BUILD+'</span>';}
+  /* live-feed health: this is the pull that ticks Hevy workouts off. If it stalls, say so out loud. */
+  const fresh=store.lastPullOk&&(Date.now()-store.lastPullOk)<10*60000;
+  const fTxt='<br><span class="'+(fresh?'ok':'off')+'">'+(store.lastPullOk?((fresh?'✓':'⚠')+' Hevy/Claude feed last landed '+tOnly(store.lastPullOk)):'⚠ Hevy/Claude feed has never landed')+'</span>';
+  e.innerHTML=(store.lastSync?('<span class="ok">Last sync: '+tOnly(store.lastSync)+'</span>'+(store.outbox.length?(' · '+store.outbox.length+' queued (auto-resends)'):'')):'<span class="off">nothing sent yet</span>')+vTxt+fTxt+'<br><span class="off">Build '+BUILD+'</span>';}
 function saveSheetUrl(){store.sheetUrl=document.getElementById('sheet-url').value.trim();save();
   document.getElementById('url-state').innerHTML=store.sheetUrl?'<span class="ok">✓ Custom endpoint saved</span>':'<span class="off">using built-in</span>';}
 function toggleFx(){store.fx=!store.fx;save();renderFxBtn();if(store.fx)blip();}
@@ -1234,6 +1247,12 @@ function restoreActive(){if(!store.active)return;active=store.active;
 try{checkRollover();resendOutbox();save();setTestBar();restoreActive();}catch(e){console.warn('boot recover',e);active=null;try{delete store.active;save();}catch(_){}}
 if(!active)renderToday();fetchPlan();try{pullParked();startStatePoll();checkVersion();}catch(e){}
 try{pullClaudeLogs(()=>{if(!document.getElementById('view-today').classList.contains('hidden'))renderToday();if(!document.getElementById('view-history').classList.contains('hidden'))renderHistory();});}catch(e){}
+/* LIVE TICK (2026-08-19): the feed used to refresh ONLY on open / return-from-background / tab-switch.
+   Finish a workout with the app already sitting on Today and it stayed un-ticked until you touched
+   something. Re-pull every 2 min while visible so Hevy workouts (and Claude's logs) tick themselves. */
+setInterval(function(){if(document.hidden)return;if(Date.now()-_claudePullAt<90000)return;
+  try{pullClaudeLogs(function(){if(!document.getElementById('view-today').classList.contains('hidden'))renderToday();
+    else if(!document.getElementById('view-history').classList.contains('hidden'))renderHistory();});}catch(e){}},120000);
 </script>
 </body>
 </html>
